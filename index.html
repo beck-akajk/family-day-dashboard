@@ -112,6 +112,16 @@ svg{display:block;}
 .icon-btn:hover{border-color:#DFD8C9;background:#FDFBF6;}
 .icon-btn:active{transform:scale(.94);}
 .icon-btn.off{color:#B4ADA0;background:#F6F3EC;}
+.icon-btn svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}
+.icon-btn.is-spinning{color:var(--sage-deep);background:var(--sage-soft);border-color:#CFE0D6;}
+@keyframes fdd-spin{to{transform:rotate(360deg);}}
+.icon-btn.is-spinning svg{animation:fdd-spin .85s linear infinite;}
+@media (max-width:380px){
+  .top-actions{gap:6px;}
+  .icon-btn{width:32px;height:32px;border-radius:10px;}
+  .brand{font-size:15.5px;gap:7px;}
+  .brand-mark{width:28px;height:28px;}
+}
 
 /* =========================================================
    레이아웃 · 카드
@@ -873,6 +883,9 @@ input::placeholder,textarea::placeholder{color:#BDB5A6;}
 
   <div class="top-actions">
     <button type="button" class="icon-btn sync-dot-btn" id="syncDot" data-state="local" aria-label="동기화: 이 기기만" title="동기화: 이 기기만"><span class="dot" aria-hidden="true"></span></button>
+    <button type="button" class="icon-btn" id="refreshBtn" aria-label="전체 업데이트" title="전체 업데이트 (날씨·동기화 새로고침)">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.4 12a8.4 8.4 0 1 1-2.5-6"/><path d="M20.4 4.2V10h-5.8"/></svg>
+    </button>
     <button type="button" class="icon-btn" id="soundBtn" aria-pressed="true" aria-label="효과음 켜짐" title="효과음 켜기/끄기">🔊</button>
     <button type="button" class="icon-btn" id="fsBtn" aria-label="전체화면" title="전체화면">⛶</button>
   </div>
@@ -2438,12 +2451,17 @@ function renderWeatherFail(){
 }
 
 function loadWeather(){
-  if(weatherLoading) return;
+  if(weatherLoading) return Promise.resolve(false);
   weatherLoading = true;
   setWeatherStatus('불러오는 중…');
 
   var weatherDone = false, weatherOk = false, weatherData = null;
   var airDone = false, airData = null;
+  var resolveDone = null;
+  var finished = new Promise(function(res){ resolveDone = res; });
+  function settle(){
+    if(weatherDone && airDone && resolveDone) resolveDone(weatherOk);
+  }
 
   function paint(){
     if(weatherOk){
@@ -2460,17 +2478,54 @@ function loadWeather(){
   }
 
   fetchWeather().then(function(w){
-    weatherDone = true; weatherOk = true; weatherData = w; paint();
+    weatherDone = true; weatherOk = true; weatherData = w; paint(); settle();
   }).catch(function(){
-    weatherDone = true; weatherOk = false; paint();
+    weatherDone = true; weatherOk = false; paint(); settle();
   });
 
   fetchJSON(AIR_URL, 5000).then(function(a){
     airDone = true;
     if(a && a.current) airData = { pm10:a.current.pm10, pm25:a.current.pm2_5, aqi:a.current.us_aqi };
-    paint();
+    paint(); settle();
   }).catch(function(){
-    airDone = true; paint();
+    airDone = true; paint(); settle();
+  });
+
+  return finished;
+}
+
+/* =========================================================
+   7-1. 전체 업데이트 (헤더의 ↻ 버튼)
+   ========================================================= */
+var refreshing = false;
+
+/* 지금 동기화 모드에서 바로 읽어 올 수 있으면 읽는다 */
+function pullSyncNow(){
+  try{
+    if(SYNC.mode === 'webapp' && typeof pullWebapp === 'function'){ pullWebapp(); return true; }
+    if(SYNC.mode === 'sheets' && typeof pullSheets === 'function'){ pullSheets(); return true; }
+    if(SYNC.mode === 'firebase' && typeof pullFirebase === 'function'){ pullFirebase(); return true; }
+  }catch(e){}
+  return false;
+}
+
+function refreshAll(){
+  if(refreshing) return Promise.resolve();
+  refreshing = true;
+  var btn = $('#refreshBtn');
+  if(btn){ btn.classList.add('is-spinning'); btn.setAttribute('aria-busy', 'true'); }
+  toast('전체 업데이트 중이에요…');
+
+  var synced = pullSyncNow();
+  var jobs = [loadWeather()];
+  if(synced) jobs.push(new Promise(function(res){ setTimeout(res, 1800); }));
+
+  return Promise.all(jobs).then(function(res){
+    refreshing = false;
+    if(btn){ btn.classList.remove('is-spinning'); btn.removeAttribute('aria-busy'); }
+    if(res[0] === false) toast('날씨를 불러오지 못했어요 · 잠시 뒤 다시 시도해 주세요');
+    else if(synced) toast('최신 상태로 업데이트했어요');
+    else toast('날씨를 새로 불러왔어요');
   });
 }
 
@@ -4273,6 +4328,10 @@ function bind(){
     $('#fsBtn').textContent = document.fullscreenElement ? '⛶' : '⛶';
     $('#fsBtn').setAttribute('aria-label', document.fullscreenElement ? '전체화면 끄기' : '전체화면');
   });
+
+  /* 전체 업데이트 */
+  var refreshBtn = $('#refreshBtn');
+  if(refreshBtn) refreshBtn.addEventListener('click', function(){ refreshAll(); });
 
   /* 날씨 재시도 */
   $('#wRetry').addEventListener('click', function(){ loadWeather(); });
