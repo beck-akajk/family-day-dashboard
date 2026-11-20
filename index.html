@@ -2146,12 +2146,13 @@ var WWO_TO_WMO = {
   200:95, 386:95, 389:95, 392:96, 395:99
 };
 
+/* WMO 코드 → 화면에 보이는 한국어. '어는 비' 같은 직역투 대신 일상 표현으로. */
 var WMO_TEXT = {
   0:'맑음', 1:'대체로 맑음', 2:'구름 조금', 3:'흐림', 45:'안개', 48:'짙은 안개',
-  51:'약한 이슬비', 53:'이슬비', 55:'강한 이슬비', 56:'어는 이슬비', 57:'어는 이슬비',
-  61:'약한 비', 63:'비', 65:'강한 비', 66:'어는 비', 67:'어는 비',
-  71:'약한 눈', 73:'눈', 75:'많은 눈', 77:'싸락눈',
-  80:'약한 소나기', 81:'소나기', 82:'강한 소나기', 85:'소나기 눈', 86:'많은 소나기 눈',
+  51:'약한 이슬비', 53:'이슬비', 55:'굵은 이슬비', 56:'차가운 이슬비', 57:'차가운 이슬비',
+  61:'약한 비', 63:'비', 65:'폭우', 66:'진눈깨비', 67:'진눈깨비',
+  71:'약한 눈', 73:'눈', 75:'폭설', 77:'싸락눈',
+  80:'약한 소나기', 81:'소나기', 82:'강한 소나기', 85:'눈 소나기', 86:'강한 눈 소나기',
   95:'천둥번개', 96:'우박 동반 뇌우', 99:'강한 우박 뇌우'
 };
 
@@ -2279,10 +2280,12 @@ function normalizeOpenMeteo(w){
   };
 }
 
+/* 1순위 open-meteo — 실제 관측을 15분마다 갱신해 주고 기본 날씨 앱과 잘 맞는다.
+   wttr.in 은 비가 오지 않는데도 '어는 비' 같은 엉뚱한 코드를 줄 때가 있어 백업으로만 쓴다. */
 function fetchWeather(){
-  return fetchJSON(WTTR_URL, 5000)
-    .then(normalizeWttr)
-    .catch(function(){ return fetchJSON(OPEN_METEO_URL, 5000).then(normalizeOpenMeteo); });
+  return fetchJSON(OPEN_METEO_URL, 5000)
+    .then(normalizeOpenMeteo)
+    .catch(function(){ return fetchJSON(WTTR_URL, 5000).then(normalizeWttr); });
 }
 
 function pm10Grade(v){
@@ -2316,11 +2319,12 @@ function buildTip(cur, maxPop, air){
   var parts = [];
   var icon = '🌈';
 
-  if(maxPop >= 55){ parts.push('비 소식이 있어요, 우산을 챙겨요'); icon = '☔'; }
+  var snowing = (typeof code === 'number') && ((code >= 71 && code <= 77) || code === 85 || code === 86);
+  var icy = (typeof code === 'number') && (code === 56 || code === 57 || code === 66 || code === 67);
+  if(snowing){ parts.push('눈이 와요, 길이 미끄러울 수 있어요'); icon = '❄️'; }
+  else if(icy){ parts.push('진눈깨비가 내려요, 길이 미끄러울 수 있어요'); icon = '🌨️'; }
+  else if(maxPop >= 55){ parts.push('비 소식이 있어요, 우산을 챙겨요'); icon = '☔'; }
   else if(isRainCode(code)){ parts.push('지금 비가 내려요, 우산을 챙겨요'); icon = '🌂'; }
-  else if(typeof code === 'number' && ((code >= 71 && code <= 77) || code === 85 || code === 86)){
-    parts.push('눈이 와요, 길이 미끄러울 수 있어요'); icon = '❄️';
-  }
 
   if(t !== null){
     if(t <= 2){ parts.push('아주 추워요, 목도리와 두꺼운 겉옷'); icon = '🧣'; }
@@ -2342,7 +2346,12 @@ function buildTip(cur, maxPop, air){
 var weatherLoading = false;
 var lastWeatherAt = 0;
 
-function setWeatherStatus(text){ var el = $('#wSrc'); if(el) el.textContent = text; }
+function setWeatherStatus(text, title){
+  var el = $('#wSrc');
+  if(!el) return;
+  el.textContent = text;
+  el.title = title || '';
+}
 
 function renderWeather(data, air){
   $('#weatherBody').hidden = false;
@@ -2393,7 +2402,14 @@ function renderWeather(data, air){
   $('#wTip').innerHTML = '<span class="w-tip-i">' + tip.icon + '</span><span>' + esc(tip.text) + '</span>';
 
   var now = new Date();
-  setWeatherStatus(data.src + ' · ' + pad2(now.getHours()) + ':' + pad2(now.getMinutes()) + ' 업데이트');
+  /* 저장된 값을 다시 그릴 때는 지금 시각이 아니라 그 값의 시각을 보여 준다 */
+  var shown = now;
+  if(data.src === '저장된 값' && weatherCache && weatherCache.at){
+    var cachedAt = new Date(weatherCache.at);
+    if(!isNaN(cachedAt.getTime())) shown = cachedAt;
+  }
+  setWeatherStatus(pad2(shown.getHours()) + ':' + pad2(shown.getMinutes()) + ' 업데이트',
+    data.src === '저장된 값' ? '마지막으로 확인한 날씨' : '출처 ' + data.src + ' · 10분마다 자동 갱신');
 
   weatherCache = {
     at: now.toISOString(), temp: temp, code: code,
