@@ -654,6 +654,10 @@ input::placeholder,textarea::placeholder{color:#BDB5A6;}
   font-size:9.5px;font-weight:600;color:#A2937A;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
+@media (max-width:760px){
+  .hw-daytabs{flex-wrap:wrap;}
+  .hw-dtab{flex:1 1 0;min-width:calc(25% - 4px);padding:8px 4px;font-size:12px;}
+}
 
 /* --- 달력: 주간 / 월간 전환 · 주간 계획 보드 --- */
 .cal-switch{display:flex;gap:2px;padding:3px;border-radius:999px;background:#F2EEE5;border:1px solid #ECE7DC;margin-right:4px;}
