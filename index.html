@@ -624,6 +624,37 @@ input::placeholder,textarea::placeholder{color:#BDB5A6;}
   padding:2px 2px 0;letter-spacing:.01em;
 }
 
+/* --- 요일별 숙제 설정(월~일) --- */
+.hw-set-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.hw-today-chip{
+  font-size:10.5px;font-weight:700;color:var(--sage-deep);
+  background:var(--sage-soft);border:1px solid #CFE0D6;border-radius:999px;padding:2px 9px;white-space:nowrap;
+}
+.hw-daytabs{
+  display:flex;gap:4px;margin-top:10px;padding:3px;
+  border-radius:12px;background:#F2EEE5;border:1px solid #ECE7DC;
+}
+.hw-dtab{
+  flex:1 1 0;min-width:0;border:0;background:transparent;border-radius:9px;padding:6px 4px;
+  font-size:12px;font-weight:700;color:var(--ink-2);cursor:pointer;white-space:nowrap;
+  display:flex;align-items:center;justify-content:center;gap:3px;
+  transition:background .16s ease,color .16s ease,box-shadow .16s ease;
+}
+.hw-dtab .n{font-size:9.5px;font-weight:700;color:#A2937A;font-variant-numeric:tabular-nums;}
+.hw-dtab.sun{color:#C48C95;}
+.hw-dtab.on{background:#fff;color:var(--sage-deep);box-shadow:0 1px 2px rgba(120,110,95,.06),0 4px 12px rgba(120,110,95,.08);}
+.hw-dtab.on .n{color:var(--sage-deep);}
+.hw-dtab.is-today::before{content:'';width:4px;height:4px;border-radius:50%;background:var(--sage);flex:0 0 auto;}
+.hw-day-empty{font-size:11.5px;color:var(--muted);font-weight:600;padding:10px 2px;line-height:1.6;}
+.hw-dayfoot{margin-top:9px;display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
+.hw-count-badge{font-size:10.5px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums;}
+#hwSettingsCard{transition:box-shadow .2s ease;}
+#hwSettingsCard.flash{box-shadow:0 0 0 3px rgba(126,158,139,.28);}
+.wb-base{
+  font-size:9.5px;font-weight:600;color:#A2937A;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+
 /* --- 달력: 주간 / 월간 전환 · 주간 계획 보드 --- */
 .cal-switch{display:flex;gap:2px;padding:3px;border-radius:999px;background:#F2EEE5;border:1px solid #ECE7DC;margin-right:4px;}
 .cal-sw{
@@ -966,6 +997,7 @@ input::placeholder,textarea::placeholder{color:#BDB5A6;}
           <span class="card-title">오늘 숙제 / 할 일</span>
           <div class="hw-head-right">
             <span class="card-sub" id="hwCount">0/3</span>
+            <button type="button" class="hw-add" id="hwEditJump" aria-label="요일별 숙제 설정 열기" title="요일별 숙제 설정 열기">✎</button>
             <button type="button" class="hw-add" id="hwQuickAdd" aria-expanded="false" aria-controls="hwQuickForm" aria-label="오늘 할 일 바로 추가" title="오늘 할 일 바로 추가">+</button>
           </div>
         </div>
@@ -1197,10 +1229,18 @@ input::placeholder,textarea::placeholder{color:#BDB5A6;}
       <div class="plan-editor" id="planEditor"></div>
     </section>
 
-    <section class="card stack" style="margin-top:14px;">
-      <span class="card-title">오늘 숙제 / 할 일</span>
-      <div class="hw-editor" id="hwEditor"></div>
-      <div style="margin-top:9px;"><button type="button" class="btn ghost" id="hwAdd">+ 숙제 추가</button></div>
+    <section class="card stack" id="hwSettingsCard" style="margin-top:14px;">
+      <div class="hw-set-head">
+        <span class="card-title">요일별 숙제 (월~일)</span>
+        <span class="hw-today-chip" id="hwTodayChip">오늘</span>
+      </div>
+      <p class="hint" id="hwDayHint">요일마다 다른 숙제를 적어 두면, 그 요일 ‘오늘’ 화면에 그 숙제가 자동으로 떠요.</p>
+      <div class="hw-daytabs" id="hwDayTabs" role="tablist" aria-label="숙제를 고칠 요일"></div>
+      <div class="hw-editor" id="hwEditor" role="tabpanel"></div>
+      <div class="hw-dayfoot">
+        <button type="button" class="btn ghost" id="hwAdd">+ 숙제 추가</button>
+        <span class="hw-count-badge" id="hwDayCount"></span>
+      </div>
     </section>
 
     <div class="save-bar">
@@ -1288,6 +1328,43 @@ var ART_NAMES = { bowl:'식사 그릇', brush:'칫솔·거울', shirt:'옷', box
   snack:'간식', pencil:'연필', bag:'가방', book:'책', moon:'달', star:'별', heart:'하트',
   gargle:'가글 컵' };
 
+/* 요일별 숙제 — 요일 번호는 0=일 … 6=토 (화면 탭은 월~일 순서) */
+var HW_DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
+var HW_MAX_PER_DAY = 8;
+var DEFAULT_HOMEWORK = [
+  { id:'h1', label:'받아쓰기 노트 1장' },
+  { id:'h2', label:'수학 익힘책 2쪽' },
+  { id:'h3', label:'영어 단어 5개' }
+];
+
+function blankHwWeek(){
+  var o = {};
+  for(var d = 0; d < 7; d++) o[d] = [];
+  return o;
+}
+function cloneHwList(list){
+  return (list || []).map(function(h){ return { id: h.id, label: h.label }; });
+}
+function cleanHwList(list, day){
+  var out = [];
+  if(!Array.isArray(list)) return out;
+  list.slice(0, HW_MAX_PER_DAY).forEach(function(h, i){
+    if(!h) return;
+    var isStr = (typeof h === 'string');
+    var label = clean(isStr ? h : h.label, 24);
+    if(!label) return;
+    out.push({
+      id: clean(isStr ? '' : h.id, 24) || ('hd' + day + Date.now().toString(36) + i),
+      label: label
+    });
+  });
+  return out;
+}
+function hwListOfDay(day){
+  var w = settings.homeworkByDay || {};
+  return w[day] || [];
+}
+
 var DEFAULT_PLANS = {
   0:{ clothes:'편한 옷', commute:'가족과 함께', supplies:'물통·간식', note:'내일 학교 갈 준비를 해요' },
   1:{ clothes:'체육복', commute:'08:10 스쿨버스', supplies:'줄넘기·물통', note:'체육 시간이 있는 날' },
@@ -1322,11 +1399,16 @@ var DEFAULT_SETTINGS = {
     ]
   },
   plans: DEFAULT_PLANS,
-  homework:[
-    { id:'h1', label:'받아쓰기 노트 1장' },
-    { id:'h2', label:'수학 익힘책 2쪽' },
-    { id:'h3', label:'영어 단어 5개' }
-  ]
+  /* 요일별 숙제 (0=일 … 6=토). 처음엔 월~금에만 기본 숙제가 들어 있어요. */
+  homeworkByDay: (function(){
+    var o = {};
+    for(var d = 0; d < 7; d++) o[d] = [];
+    for(d = 1; d <= 5; d++) o[d] = cloneHwList(DEFAULT_HOMEWORK);
+    return o;
+  })(),
+  homeworkRev: 0,
+  /* 예전 버전이 읽는 칸 — 늘 월요일 숙제를 담아 함께 보낸다 */
+  homework: cloneHwList(DEFAULT_HOMEWORK)
 };
 
 function normalizeSettings(raw){
@@ -1374,16 +1456,26 @@ function normalizeSettings(raw){
     }
   }
 
-  if(Array.isArray(s.homework) && s.homework.length){
-    var hw = [];
-    s.homework.slice(0, 6).forEach(function(h, i){
-      h = h || {};
-      var label = clean(h.label, 24);
-      if(!label) return;
-      hw.push({ id: clean(h.id, 20) || ('hd' + Date.now().toString(36) + i), label: label });
-    });
-    if(hw.length) out.homework = hw;
+  var week = null;
+  if(s.homeworkByDay && typeof s.homeworkByDay === 'object'){
+    /* 이미 요일별 숙제를 쓰는 기기 — 요일마다 따로 다듬는다(빈 요일도 그대로 둔다) */
+    week = blankHwWeek();
+    for(var dh = 0; dh < 7; dh++){
+      var srcDay = s.homeworkByDay[dh];
+      if(srcDay == null && s.homeworkByDay[String(dh)] !== undefined) srcDay = s.homeworkByDay[String(dh)];
+      week[dh] = cleanHwList(srcDay, dh);
+    }
+  }else if(Array.isArray(s.homework) && s.homework.length){
+    /* 예전 ‘매일 반복’ 숙제 → 요일별 숙제로 옮긴다(일~토 같은 목록에서 시작, 내용은 그대로 살림) */
+    var legacy = cleanHwList(s.homework, 1);
+    week = blankHwWeek();
+    for(var dl = 0; dl < 7; dl++) week[dl] = cloneHwList(legacy);
+  }else{
+    week = JSON.parse(JSON.stringify(DEFAULT_SETTINGS.homeworkByDay));
   }
+  out.homeworkByDay = week;
+  out.homeworkRev = Math.max(0, parseInt(s.homeworkRev, 10) || 0);
+  out.homework = cloneHwList(week[1] || []);
   return out;
 }
 
@@ -1902,9 +1994,11 @@ function renderPlan(){
 }
 
 function renderHomework(){
-  var todayKey = dateKey(new Date());
+  var now = new Date();
+  var todayKey = dateKey(now);
+  var dow = now.getDay();
   var planned = state.dateTodos[todayKey] || [];
-  var fixed = settings.homework || [];
+  var fixed = hwListOfDay(dow);
   var doneFixed = state.homework || {};
 
   var nPlan = planned.filter(function(t){ return t.done; }).length;
@@ -1922,8 +2016,8 @@ function renderHomework(){
       + '</div>';
   });
 
-  if(planned.length && fixed.length){
-    html += '<div class="hw-sep">매일 반복</div>';
+  if(fixed.length){
+    html += '<div class="hw-sep">' + WEEK[dow] + '요일 숙제</div>';
   }
 
   fixed.forEach(function(h){
@@ -1931,12 +2025,12 @@ function renderHomework(){
     html += '<div class="hw-item' + (isDone ? ' done' : '') + '" role="checkbox" tabindex="0" aria-checked="' + (isDone ? 'true' : 'false') + '" data-id="' + esc(h.id) + '">'
       + '<span class="hw-box"><svg viewBox="0 0 24 24"><path d="M5 12.6l4.4 4.4L19 7.4"/></svg></span>'
       + '<span class="hw-lab">' + esc(h.label) + '</span>'
-      + '<button type="button" class="hw-del" data-hwdel="' + esc(h.id) + '" aria-label="반복 숙제에서 빼기" title="반복 숙제에서 빼기">✕</button>'
+      + '<button type="button" class="hw-del" data-hwdel="' + esc(h.id) + '" aria-label="' + WEEK[dow] + '요일 숙제에서 빼기" title="' + WEEK[dow] + '요일 숙제에서 빼기">✕</button>'
       + '</div>';
   });
 
   if(!html){
-    html = '<p class="hw-empty">오늘 할 일이 없어요. 오른쪽 <b>+</b> 로 바로 적어 보세요.</p>';
+    html = '<p class="hw-empty">오늘 숙제가 없어요. <b>✎</b>를 눌러 요일별 숙제를 정해 두면 매주 그 요일에 떠요.</p>';
   }
   $('#hwList').innerHTML = html;
 
@@ -2548,13 +2642,84 @@ function renderPlanEditor(){
   $('#planEditor').innerHTML = html;
 }
 
-function renderHomeworkEditor(){
-  $('#hwEditor').innerHTML = settings.homework.map(function(h){
-    return '<div class="hw-ed-row" data-id="' + esc(h.id) + '">'
-      + '<input type="text" class="hw-ed-label" maxlength="24" value="' + esc(h.label) + '" aria-label="숙제 내용">'
-      + '<button type="button" class="ed-del" data-hwdel="1" aria-label="삭제">✕</button>'
-      + '</div>';
+var hwEditDay = new Date().getDay();
+var hwSaveTimer = null;
+
+function renderHwDayTabs(){
+  var el = $('#hwDayTabs');
+  if(!el) return;
+  var today = new Date().getDay();
+  el.innerHTML = HW_DAY_ORDER.map(function(d){
+    var n = (settings.homeworkByDay[d] || []).length;
+    var cls = 'hw-dtab' + (d === hwEditDay ? ' on' : '') + (d === 0 ? ' sun' : '') + (d === today ? ' is-today' : '');
+    return '<button type="button" role="tab" class="' + cls + '" data-day="' + d + '"'
+      + ' aria-selected="' + (d === hwEditDay ? 'true' : 'false') + '"'
+      + ' aria-label="' + WEEK[d] + '요일 숙제 ' + n + '개">' + WEEK[d]
+      + '<span class="n">' + n + '</span></button>';
   }).join('');
+  var chip = $('#hwTodayChip');
+  if(chip) chip.textContent = '오늘은 ' + WEEK[today] + '요일';
+  var hint = $('#hwDayHint');
+  if(hint){
+    hint.textContent = (hwEditDay === today ? '⬇ 지금 오늘 화면에 뜨는 ' : '')
+      + WEEK[hwEditDay] + '요일 숙제예요. 위 요일 탭을 눌러 날마다 다르게 적어 둘 수 있어요.';
+  }
+}
+
+function renderHomeworkEditor(){
+  renderHwDayTabs();
+  var box = $('#hwEditor');
+  if(!box) return;
+  box.dataset.day = String(hwEditDay);
+  var list = settings.homeworkByDay[hwEditDay] || [];
+  if(!list.length){
+    box.innerHTML = '<p class="hw-day-empty">' + WEEK[hwEditDay] + '요일은 아직 비어 있어요.<br>아래 <b>+ 숙제 추가</b>로 적어 두면 매주 ' + WEEK[hwEditDay] + '요일에 자동으로 떠요.</p>';
+  }else{
+    box.innerHTML = list.map(function(h){
+      return '<div class="hw-ed-row" data-id="' + esc(h.id) + '">'
+        + '<input type="text" class="hw-ed-label" maxlength="24" value="' + esc(h.label) + '" aria-label="' + WEEK[hwEditDay] + '요일 숙제 내용">'
+        + '<button type="button" class="ed-del" data-hwdel="1" aria-label="' + WEEK[hwEditDay] + '요일 숙제에서 삭제">✕</button>'
+        + '</div>';
+    }).join('');
+  }
+  var add = $('#hwAdd');
+  if(add){
+    var full = list.length >= HW_MAX_PER_DAY;
+    add.disabled = full;
+    add.textContent = full ? ('숙제 ' + HW_MAX_PER_DAY + '개 가득 참') : '+ 숙제 추가';
+    add.style.opacity = full ? '.55' : '';
+    add.style.cursor = full ? 'default' : '';
+  }
+  var cnt = $('#hwDayCount');
+  if(cnt) cnt.textContent = list.length + ' / ' + HW_MAX_PER_DAY + '개';
+}
+
+/* 요일별 숙제는 구조(추가·삭제)를 바꾸면 바로 저장한다 */
+function commitHwWeek(nextWeek, msg){
+  var s = JSON.parse(JSON.stringify(settings));
+  s.homeworkByDay = nextWeek;
+  s.homeworkRev = Date.now();
+  s.homework = cloneHwList(nextWeek[1] || []);
+  settings = normalizeSettings(s);
+  saveSettings();
+  renderHomeworkEditor();
+  renderHomework();
+  if(msg) toast(msg + ' · 바로 저장했어요');
+}
+
+function setHwEditDay(d){
+  flushHwLabel();
+  hwEditDay = parseInt(d, 10);
+  if(isNaN(hwEditDay) || hwEditDay < 0 || hwEditDay > 6) hwEditDay = new Date().getDay();
+  renderHomeworkEditor();
+}
+
+function flushHwLabel(){
+  if(!hwSaveTimer) return;
+  clearTimeout(hwSaveTimer);
+  hwSaveTimer = null;
+  saveSettings();
+  renderHomework();
 }
 
 function fillSettingsForm(){
@@ -2602,13 +2767,7 @@ function collectSettings(){
   if(!s.routines.morning.length) s.routines.morning = JSON.parse(JSON.stringify(DEFAULT_SETTINGS.routines.morning));
   if(!s.routines.afternoon.length) s.routines.afternoon = JSON.parse(JSON.stringify(DEFAULT_SETTINGS.routines.afternoon));
 
-  s.homework = [];
-  $$('#hwEditor .hw-ed-row').forEach(function(row){
-    var label = clean($('.hw-ed-label', row).value, 24);
-    if(!label) return;
-    s.homework.push({ id: row.dataset.id, label: label });
-  });
-  if(!s.homework.length) s.homework = [{ id:'h1', label:'오늘의 할 일 하나' }];
+  /* 요일별 숙제는 고치는 즉시 settings.homeworkByDay 에 반영되므로 여기서는 그대로 둔다 */
   return s;
 }
 
@@ -2802,6 +2961,10 @@ function renderWeekBoard(){
     });
 
     html += '</ul>';
+    var baseHw = hwListOfDay(d.getDay());
+    if(baseHw.length){
+      html += '<span class="wb-base" title="' + esc(baseHw.map(function(b){ return b.label; }).join(', ')) + '">📚 ' + WEEK[d.getDay()] + ' 숙제 ' + baseHw.length + '</span>';
+    }
     if(memos.length){
       html += '<span class="wb-memo" title="' + esc(memos[0].text) + '">📌 ' + esc(memos[0].text) + '</span>';
     }
@@ -3033,7 +3196,18 @@ function applyRemote(data){
   var ts = parseInt(data.updatedAt, 10) || 0;
   var beforeS = JSON.stringify(settings), beforeSt = JSON.stringify(state);
 
-  if(data.settings && typeof data.settings === 'object') settings = normalizeSettings(data.settings);
+  var healHwWeek = false;
+  if(data.settings && typeof data.settings === 'object'){
+    var nextS = normalizeSettings(data.settings);
+    /* 요일별 숙제를 모르는 예전 버전이 올린 내용으로 이 기기의 요일별 숙제를 지우지 않는다 */
+    if(!data.settings.homeworkByDay && settings.homeworkRev > 0){
+      nextS.homeworkByDay = JSON.parse(JSON.stringify(settings.homeworkByDay));
+      nextS.homeworkRev = settings.homeworkRev;
+      nextS.homework = cloneHwList(nextS.homeworkByDay[1] || []);
+      healHwWeek = true;
+    }
+    settings = nextS;
+  }
   state = normalizeState(data.state);
 
   writeStore(KEY_S, settings);
@@ -3048,6 +3222,8 @@ function applyRemote(data){
     try{ renderAll(); } finally { skipFormFill = false; }
     renderSyncUI();
   }
+  /* 이 기기의 요일별 숙제를 지킨 경우, 다른 기기에도 다시 올려 맞춘다 */
+  if(healHwWeek) queuePush(1200);
 }
 
 function handleRemoteResult(res, kind){
@@ -3698,15 +3874,13 @@ function bind(){
       }
       if(del.dataset.hwdel){
         var fid = del.dataset.hwdel;
-        var h = (settings.homework || []).filter(function(x){ return x.id === fid; })[0];
+        var dow = (new Date()).getDay();
+        var h = hwListOfDay(dow).filter(function(x){ return x.id === fid; })[0];
         if(!h) return;
-        if(!window.confirm('“' + h.label + '”을(를) 매일 반복 숙제에서 뺐을까요?')) return;
-        settings.homework = settings.homework.filter(function(x){ return x.id !== fid; });
-        if(!settings.homework.length) settings.homework = [{ id:'h1', label:'오늘의 할 일 하나' }];
-        saveSettings();
-        renderHomework();
-        renderHomeworkEditor();
-        toast('반복 숙제에서 뺐어요');
+        if(!window.confirm('“' + h.label + '”을(를) ' + WEEK[dow] + '요일 숙제에서 뺄까요?\n(다른 요일 숙제는 그대로예요)')) return;
+        var nextWeek = JSON.parse(JSON.stringify(settings.homeworkByDay));
+        nextWeek[dow] = (nextWeek[dow] || []).filter(function(x){ return x.id !== fid; });
+        commitHwWeek(nextWeek, WEEK[dow] + '요일 숙제에서 뺐어요');
         return;
       }
     }
@@ -3730,6 +3904,20 @@ function bind(){
     if(!item) return;
     e.preventDefault();
     item.click();
+  });
+
+  /* 요일별 숙제 설정으로 바로 가기 (오늘 카드 ✎) */
+  $('#hwEditJump').addEventListener('click', function(){
+    flushHwLabel();
+    hwEditDay = new Date().getDay();
+    setView('settings');
+    var card = document.getElementById('hwSettingsCard');
+    if(!card) return;
+    setTimeout(function(){
+      card.scrollIntoView({ block:'start', behavior:'smooth' });
+      card.classList.add('flash');
+      setTimeout(function(){ card.classList.remove('flash'); }, 1400);
+    }, 90);
   });
 
   /* 오늘 할 일 바로 추가 */
@@ -3982,22 +4170,62 @@ function bind(){
   }, { passive:false });
   document.addEventListener('pointerup', rowDragEnd);
   document.addEventListener('pointercancel', rowDragEnd);
+  /* 요일별 숙제 — 요일 탭 · 추가 · 삭제 · 이름 고치기 */
+  $('#hwDayTabs').addEventListener('click', function(e){
+    var b = e.target.closest('[data-day]');
+    if(!b) return;
+    setHwEditDay(b.dataset.day);
+  });
   $('#hwAdd').addEventListener('click', function(){
-    var draft = normalizeSettings(collectSettings());
-    if(draft.homework.length >= 6){ toast('숙제는 6개까지 넣을 수 있어요'); return; }
-    draft.homework.push({ id:'hd' + Date.now().toString(36), label:'새 할 일' });
-    settings = draft;
-    renderHomeworkEditor();
+    var list = (settings.homeworkByDay[hwEditDay] || []).slice();
+    if(list.length >= HW_MAX_PER_DAY){ toast('하루 숙제는 ' + HW_MAX_PER_DAY + '개까지예요'); return; }
+    var nextWeek = JSON.parse(JSON.stringify(settings.homeworkByDay));
+    nextWeek[hwEditDay] = list.concat([{ id:'hd' + Date.now().toString(36), label:WEEK[hwEditDay] + '요일 숙제' }]);
+    commitHwWeek(nextWeek, WEEK[hwEditDay] + '요일 숙제를 추가했어요');
+    var rows = $$('#hwEditor .hw-ed-row');
+    var last = rows[rows.length - 1];
+    if(last){
+      var inp = $('.hw-ed-label', last);
+      if(inp){ inp.focus(); inp.select(); }
+    }
   });
   $('#hwEditor').addEventListener('click', function(e){
     var del = e.target.closest('[data-hwdel]');
     if(!del) return;
     var row = del.closest('.hw-ed-row');
-    var draft = normalizeSettings(collectSettings());
-    if(draft.homework.length <= 1){ toast('할 일은 하나 이상 필요해요'); return; }
-    draft.homework = draft.homework.filter(function(h){ return h.id !== row.dataset.id; });
-    settings = draft;
-    renderHomeworkEditor();
+    var day = hwEditDay;
+    var nextWeek = JSON.parse(JSON.stringify(settings.homeworkByDay));
+    nextWeek[day] = (nextWeek[day] || []).filter(function(h){ return h.id !== row.dataset.id; });
+    commitHwWeek(nextWeek, WEEK[day] + '요일 숙제를 지웠어요');
+  });
+  $('#hwEditor').addEventListener('input', function(e){
+    var inp = e.target.closest('.hw-ed-label');
+    if(!inp) return;
+    var row = inp.closest('.hw-ed-row');
+    var item = (settings.homeworkByDay[hwEditDay] || []).filter(function(h){ return h.id === row.dataset.id; })[0];
+    if(!item) return;
+    item.label = inp.value;
+    settings.homeworkRev = Date.now();
+    if(hwSaveTimer) clearTimeout(hwSaveTimer);
+    hwSaveTimer = setTimeout(function(){
+      hwSaveTimer = null;
+      saveSettings();
+      renderHomework();
+    }, 400);
+  });
+  $('#hwEditor').addEventListener('change', function(e){
+    var inp = e.target.closest('.hw-ed-label');
+    if(!inp) return;
+    if(inp.value.trim()){
+      flushHwLabel();
+      return;
+    }
+    /* 이름을 다 지우고 나가면 그 숙제는 없앤다 */
+    var row = inp.closest('.hw-ed-row');
+    var day = hwEditDay;
+    var nextWeek = JSON.parse(JSON.stringify(settings.homeworkByDay));
+    nextWeek[day] = (nextWeek[day] || []).filter(function(h){ return h.id !== row.dataset.id; });
+    commitHwWeek(nextWeek, '빈 숙제를 지웠어요');
   });
 
   /* 효과음 */
