@@ -2850,6 +2850,19 @@ function init() {
     cb.classList.add('hidden');
   }
   show('screen-title');
+  var em = $('embers');
+  if (em && !em.childNodes.length) {
+    for (var ei = 0; ei < 26; ei++) {
+      var sp = document.createElement('i');
+      sp.className = 'ember';
+      var sz = rnd(1.6, 3.6);
+      sp.style.left = (Math.random() * 100) + '%';
+      sp.style.width = sz + 'px'; sp.style.height = sz + 'px';
+      sp.style.animationDuration = rnd(7, 16).toFixed(1) + 's';
+      sp.style.animationDelay = (-Math.random() * 12).toFixed(1) + 's';
+      em.appendChild(sp);
+    }
+  }
   window.__gc = { G: G, makeItem: makeItem, dropItem: dropItem, damageEnemy: damageEnemy, killEnemy: killEnemy, enterFloor: enterFloor, spawnProj: spawnProj, renderInv: renderInv };
   requestAnimationFrame(frame);
 }

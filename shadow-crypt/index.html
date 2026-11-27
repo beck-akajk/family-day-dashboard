@@ -98,7 +98,7 @@
   .titlewrap{text-align:center;padding:12px;animation:fadein .8s ease both;}
   @keyframes fadein{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
   .rune{font-size:clamp(20px,5vh,36px);color:#8c2b22;text-shadow:0 0 22px rgba(190,50,30,.7);margin-bottom:2px;}
-  #screen-title h1{font:400 clamp(30px,8.5vh,64px)/1.05 "Noto Serif KR","Nanum Myeongjo",Georgia,serif;margin:0;
+  #screen-title h1{font:400 clamp(30px,9.6vh,86px)/1.05 "Noto Serif KR","Nanum Myeongjo",Georgia,serif;margin:0;
     color:#efdcb6;letter-spacing:.14em;text-shadow:0 0 30px rgba(210,140,60,.35),0 4px 14px #000;}
   .sub{font:400 clamp(8px,1.7vh,12px)/1 Georgia,serif;letter-spacing:.42em;color:#8b7a5f;margin-top:8px;}
   .menu{display:flex;flex-direction:column;gap:9px;align-items:center;margin-top:clamp(14px,3.4vh,34px);}
@@ -253,6 +253,10 @@
     opacity:0;transition:opacity .28s;}
   #lvlflash{position:fixed;inset:0;z-index:24;pointer-events:none;background:radial-gradient(ellipse at 50% 50%,rgba(255,210,120,.22),transparent 62%);
     opacity:0;transition:opacity .5s;}
+    #embers{position:absolute;inset:0;overflow:hidden;pointer-events:none;}
+  .ember{position:absolute;bottom:-12px;border-radius:50%;background:#f0b26a;box-shadow:0 0 7px #c86a20;
+    opacity:0;animation:rise linear infinite;}
+  @keyframes rise{0%{transform:translateY(0) scale(1);opacity:0}8%{opacity:.75}75%{opacity:.25}100%{transform:translateY(-100vh) scale(.35);opacity:0}}
   .vignette{position:fixed;inset:0;z-index:10;pointer-events:none;
     background:radial-gradient(ellipse at 50% 50%,transparent 52%,rgba(0,0,0,.55) 100%);}
 </style>
@@ -294,6 +298,7 @@
 
 <!-- TITLE -->
 <div id="screen-title" class="screen">
+  <div id="embers"></div>
   <div class="titlewrap">
     <div class="rune">☠</div>
     <h1>그림자 성채</h1>
@@ -427,6 +432,6 @@
 <div id="rotate"><div class="ico">📱</div><div>가로로 돌려 주세요<br><span style="font-size:10px;color:#6b6153">SHADOW CRYPT는 가로 화면에 맞춰져 있습니다</span></div></div>
 <div id="errbox"></div>
 
-<script src="game.js?v=10"></script>
+<script src="game.js?v=11"></script>
 </body>
 </html>
