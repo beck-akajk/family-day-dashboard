@@ -247,6 +247,16 @@
   #rotate .ico{font-size:34px;animation:rot 1.8s ease-in-out infinite;}
   @keyframes rot{0%,45%{transform:rotate(0)}70%,100%{transform:rotate(90deg)}}
   @media (orientation:portrait){ #rotate{display:flex;} }
+  @media (max-height:440px){
+    .abtn{padding:3px 4px;font-size:9px;letter-spacing:.06em;}
+    .abtn small{display:none;}
+    .dactions{gap:3px;padding-top:5px;}
+    .dlegend{padding:4px;font-size:8px;line-height:1.45;margin-top:5px;}
+    .dcmp{margin-top:5px;padding-top:4px;line-height:1.5;}
+    .eqslot{height:clamp(30px,7.4vh,44px);}
+    .dmods{line-height:1.55;}
+    .dname{font-size:11px;}
+  }
   #errbox{position:fixed;left:4px;bottom:4px;z-index:99;max-width:70vw;font:10px/1.4 monospace;color:#ff9d8a;
     background:rgba(30,0,0,.85);padding:3px 6px;border-radius:3px;display:none;white-space:pre-wrap;}
   #flash{position:fixed;inset:0;z-index:25;pointer-events:none;background:radial-gradient(ellipse at 50% 50%,transparent 40%,rgba(150,10,5,.55));
@@ -432,6 +442,6 @@
 <div id="rotate"><div class="ico">📱</div><div>가로로 돌려 주세요<br><span style="font-size:10px;color:#6b6153">SHADOW CRYPT는 가로 화면에 맞춰져 있습니다</span></div></div>
 <div id="errbox"></div>
 
-<script src="game.js?v=13"></script>
+<script src="game.js?v=14"></script>
 </body>
 </html>
