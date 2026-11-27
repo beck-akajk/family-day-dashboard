@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#07060a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>그림자 성채 · Shadow Crypt</title>
+<style>
+  :root{
+    --gold:#d9b479;
+    --gold2:#f4e2bb;
+    --golddim:#8a6f45;
+    --blood:#8d1f19;
+    --blood2:#d8433a;
+    --ink:#06050a;
+    --panel:rgba(13,11,17,.965);
+    --line:rgba(200,164,105,.28);
+    --s1:clamp(70px,22vh,96px);   /* attack */
+    --s2:clamp(44px,13.5vh,58px); /* dash / potion */
+    --s3:clamp(46px,14.5vh,60px); /* skills */
+    --pad:clamp(8px,1.6vh,16px);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{
+    margin:0;padding:0;height:100%;width:100%;overflow:hidden;background:#050408;color:#e9dfcb;
+    font-family:"Pretendard","Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif;
+    touch-action:none;overscroll-behavior:none;user-select:none;-webkit-user-select:none;
+  }
+  canvas#game{position:fixed;inset:0;width:100%;height:100%;display:block;background:#050408;}
+  .hidden{display:none !important;}
+  button{font-family:inherit;color:inherit;border:0;background:none;cursor:pointer;touch-action:manipulation;}
+  .serif{font-family:"Noto Serif KR","Nanum Myeongjo",Georgia,"Times New Roman",serif;}
+
+  /* ---------------- HUD ---------------- */
+  #hud{position:fixed;inset:0;pointer-events:none;z-index:20;}
+  #hud .tl{position:absolute;left:calc(var(--pad) + env(safe-area-inset-left));top:calc(var(--pad) + env(safe-area-inset-top));width:min(38vw,320px);}
+  #hud .tr{position:absolute;right:calc(var(--pad) + env(safe-area-inset-right));top:calc(var(--pad) + env(safe-area-inset-top));display:flex;flex-direction:column;align-items:flex-end;gap:5px;}
+  .lvrow{display:flex;align-items:center;gap:8px;margin-bottom:4px;text-shadow:0 1px 3px #000;}
+  .lvrow .lv{font:700 13px/1 Georgia,serif;color:var(--gold2);letter-spacing:.5px;}
+  .lvrow .lv b{color:#fff;}
+  .lvrow .cls{font-size:11px;color:#9d907c;letter-spacing:1px;}
+  .bar{position:relative;height:11px;border-radius:6px;background:rgba(0,0,0,.72);border:1px solid rgba(255,255,255,.09);overflow:hidden;margin-bottom:3px;box-shadow:inset 0 0 8px #000;}
+  .bar i{position:absolute;left:0;top:0;bottom:0;width:0%;transition:width .12s linear;}
+  .bar.hp i{background:linear-gradient(180deg,#c8352b,#7c1410);box-shadow:0 0 10px rgba(200,50,40,.6);}
+  .bar.mp i{background:linear-gradient(180deg,#3d7bd6,#1d3d80);box-shadow:0 0 10px rgba(60,110,220,.5);}
+  .bar.xp{height:5px;border-radius:3px;}
+  .bar.xp i{background:linear-gradient(90deg,#a98846,#e8cf92);}
+  .bar span{position:absolute;inset:0;font:600 8px/11px monospace;text-align:center;color:#f6ecda;text-shadow:0 1px 2px #000;letter-spacing:.5px;}
+  .gold{display:inline-flex;align-items:center;gap:5px;font:700 12px/1 Georgia,serif;color:var(--gold2);text-shadow:0 1px 3px #000;margin-top:2px;}
+  .gold em{font-style:normal;font-size:9px;color:#8d7c5f;letter-spacing:1px;}
+  .depth{margin-top:3px;font:600 10px/1.2 sans-serif;color:#9c8f7b;letter-spacing:.6px;text-shadow:0 1px 3px #000;}
+  .topbtns{display:flex;gap:5px;pointer-events:auto;}
+  .mini{pointer-events:auto;height:26px;padding:0 8px;border-radius:7px;background:linear-gradient(180deg,rgba(46,38,30,.92),rgba(20,16,14,.94));
+    border:1px solid var(--line);color:#cfbfa2;font-size:11px;letter-spacing:.5px;display:flex;align-items:center;gap:4px;
+    box-shadow:0 2px 8px rgba(0,0,0,.6);}
+  .mini:active{transform:translateY(1px);}
+  .mini .k{font:600 8px/1 monospace;color:#6f6250;border:1px solid #4a4030;border-radius:3px;padding:1px 3px;}
+  #minimap{width:clamp(74px,20vh,110px);height:clamp(74px,20vh,110px);border-radius:8px;border:1px solid rgba(200,164,105,.3);
+    background:#08070b;opacity:.9;box-shadow:0 2px 12px rgba(0,0,0,.7);}
+
+  /* ---------------- action buttons ---------------- */
+  #actions{position:fixed;right:calc(var(--pad) + env(safe-area-inset-right));bottom:calc(var(--pad) + env(safe-area-inset-bottom));
+    display:flex;flex-direction:column;align-items:flex-end;gap:clamp(4px,1vh,9px);z-index:30;pointer-events:none;}
+  #skills{display:flex;gap:clamp(4px,1vh,9px);align-items:flex-end;pointer-events:none;}
+  #mainrow{display:flex;gap:clamp(4px,1vh,9px);align-items:flex-end;pointer-events:none;}
+  .act{position:relative;pointer-events:auto;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    color:#f0e4cd;text-shadow:0 1px 3px #000;
+    background:radial-gradient(circle at 50% 30%,rgba(70,56,40,.92),rgba(24,19,16,.96) 62%,rgba(9,7,8,.98));
+    border:1px solid rgba(214,176,116,.45);
+    box-shadow:0 6px 18px rgba(0,0,0,.65),inset 0 1px 0 rgba(255,236,200,.16);}
+  .act:active{transform:scale(.94);filter:brightness(1.2);}
+  .act.dis{filter:grayscale(.75) brightness(.62);}
+  .act .ic{font-size:calc(var(--s3) * .40);line-height:1;pointer-events:none;}
+  .act .nm{position:absolute;bottom:-2px;font-size:clamp(7px,1vh,9px);color:#b6a687;letter-spacing:.2px;pointer-events:none;white-space:nowrap;}
+  .sk{width:var(--s3);height:var(--s3);}
+  .sk .key{position:absolute;top:1px;right:5px;font:700 8px/1 monospace;color:#7d6e55;}
+  .sk .cd{position:absolute;inset:0;border-radius:50%;pointer-events:none;
+    background:conic-gradient(rgba(0,0,0,.72) var(--p,0%),transparent 0);}
+  .sk .cdt{position:absolute;font:700 clamp(10px,2.2vh,15px)/1 Georgia,serif;color:#fff;text-shadow:0 1px 4px #000;pointer-events:none;}
+  #btn-atk{width:var(--s1);height:var(--s1);border-color:rgba(226,150,80,.6);
+    background:radial-gradient(circle at 50% 28%,rgba(138,48,30,.95),rgba(60,16,12,.97) 60%,rgba(16,6,6,1));
+    box-shadow:0 6px 22px rgba(120,20,10,.5),inset 0 2px 0 rgba(255,180,120,.25);}
+  #btn-atk .ic{font-size:calc(var(--s1)*.36);}
+  #btn-atk .nm{bottom:6px;color:#e8a982;}
+  .s2{width:var(--s2);height:var(--s2);}
+  .s2 .ic{font-size:calc(var(--s2)*.44);}
+  #btn-potion .cnt{position:absolute;right:-2px;bottom:-2px;min-width:17px;height:17px;border-radius:9px;background:#2a1410;border:1px solid #6c4a35;
+    font:700 10px/15px Georgia,serif;color:#ffd9a8;text-align:center;padding:0 3px;}
+  #btn-potion.zero{opacity:.55;}
+
+  /* ---------------- screens ---------------- */
+  .screen{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(ellipse at 50% 40%,rgba(24,14,12,.55),rgba(3,3,6,.96) 70%);backdrop-filter:blur(3px);}
+  #screen-title{background:radial-gradient(ellipse at 50% 32%,rgba(60,24,14,.5),rgba(4,3,7,.97) 62%),#050408;}
+  .titlewrap{text-align:center;padding:12px;animation:fadein .8s ease both;}
+  @keyframes fadein{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  .rune{font-size:clamp(20px,5vh,36px);color:#8c2b22;text-shadow:0 0 22px rgba(190,50,30,.7);margin-bottom:2px;}
+  #screen-title h1{font:400 clamp(30px,8.5vh,64px)/1.05 "Noto Serif KR","Nanum Myeongjo",Georgia,serif;margin:0;
+    color:#efdcb6;letter-spacing:.14em;text-shadow:0 0 30px rgba(210,140,60,.35),0 4px 14px #000;}
+  .sub{font:400 clamp(8px,1.7vh,12px)/1 Georgia,serif;letter-spacing:.42em;color:#8b7a5f;margin-top:8px;}
+  .menu{display:flex;flex-direction:column;gap:9px;align-items:center;margin-top:clamp(14px,3.4vh,34px);}
+  .big{min-width:clamp(190px,32vh,250px);padding:clamp(8px,1.6vh,12px) 22px;border-radius:3px;font-size:clamp(12px,1.9vh,15px);letter-spacing:.18em;
+    color:#f2e3c6;background:linear-gradient(180deg,rgba(72,44,28,.9),rgba(26,16,12,.95));border:1px solid rgba(206,163,100,.5);
+    box-shadow:0 4px 16px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,230,190,.16);transition:.15s;}
+  .big:hover{background:linear-gradient(180deg,rgba(108,64,36,.95),rgba(40,22,14,.98));border-color:rgba(240,197,128,.8);}
+  .big:active{transform:translateY(1px);}
+  .big.sec{background:linear-gradient(180deg,rgba(38,32,28,.9),rgba(16,14,14,.95));min-width:clamp(150px,26vh,210px);}
+  .ghost{padding:6px 12px;font-size:11px;color:#9c8d75;letter-spacing:.12em;border:1px solid rgba(180,150,110,.22);border-radius:3px;}
+  .hint{margin-top:clamp(10px,2.6vh,22px);font-size:clamp(9px,1.5vh,11px);color:#6f6455;letter-spacing:.06em;line-height:1.7;}
+
+  /* class select */
+  #screen-class{background:radial-gradient(ellipse at 50% 45%,rgba(30,18,14,.6),rgba(3,3,6,.97) 70%),#050408;}
+  .classwrap{width:min(96vw,1050px);text-align:center;padding:10px;}
+  .classwrap h2{font:400 clamp(15px,3.2vh,24px)/1.2 "Noto Serif KR",Georgia,serif;letter-spacing:.22em;color:#e7d3ac;margin:0 0 3px;}
+  .classwrap .cs{font-size:clamp(8px,1.4vh,11px);color:#7e7059;letter-spacing:.2em;margin-bottom:clamp(10px,2.4vh,22px);}
+  .cards{display:flex;gap:clamp(7px,1.4vw,16px);justify-content:center;}
+  .card{flex:1 1 0;max-width:300px;padding:clamp(8px,1.8vh,16px) clamp(7px,1.2vw,14px);border-radius:5px;text-align:center;
+    background:linear-gradient(170deg,rgba(42,32,28,.86),rgba(12,10,12,.95));border:1px solid rgba(180,146,96,.28);
+    box-shadow:0 8px 26px rgba(0,0,0,.55);transition:.18s;cursor:pointer;position:relative;overflow:hidden;}
+  .card:hover{transform:translateY(-3px);border-color:rgba(226,182,116,.6);box-shadow:0 12px 34px rgba(0,0,0,.7),0 0 30px rgba(150,90,40,.12);}
+  .card .em{font-size:clamp(20px,4.6vh,34px);line-height:1;margin-bottom:4px;}
+  .card h3{margin:0;font:400 clamp(14px,2.8vh,21px)/1.2 "Noto Serif KR",Georgia,serif;color:#f0dbb4;letter-spacing:.1em;}
+  .card .tag{font-size:clamp(8px,1.5vh,10.5px);color:#95866e;letter-spacing:.06em;margin:4px 0 6px;min-height:1.4em;}
+  .card ul{list-style:none;margin:0;padding:0;text-align:left;font-size:clamp(8px,1.5vh,10.5px);color:#a4967e;line-height:1.75;}
+  .card ul li::before{content:"›";color:#9c5b38;margin-right:5px;}
+  .card .pick{margin-top:clamp(8px,1.8vh,14px);display:block;width:100%;padding:6px;border-radius:2px;
+    background:linear-gradient(180deg,rgba(94,58,34,.85),rgba(38,22,14,.95));border:1px solid rgba(210,166,102,.45);
+    font-size:clamp(10px,1.8vh,12px);letter-spacing:.16em;color:#f1dcb6;}
+  .card.sel{border-color:#e0b273;box-shadow:0 0 0 1px rgba(224,178,115,.5),0 0 34px rgba(200,130,60,.2);}
+  .cback{margin-top:clamp(9px,2vh,18px);}
+
+  /* ---------------- modal panels ---------------- */
+  .panel{background:var(--panel);border:1px solid rgba(196,158,104,.34);border-radius:6px;
+    box-shadow:0 20px 60px rgba(0,0,0,.85),inset 0 1px 0 rgba(255,230,190,.08);
+    display:flex;flex-direction:column;overflow:hidden;}
+  #screen-inv .panel{width:min(96vw,1080px);height:min(94vh,640px);}
+  .invhead{display:flex;align-items:center;justify-content:space-between;padding:clamp(5px,1.1vh,10px) clamp(8px,1.4vw,16px);
+    border-bottom:1px solid rgba(180,146,96,.2);background:linear-gradient(180deg,rgba(46,34,26,.6),transparent);flex:0 0 auto;}
+  .invhead h2{margin:0;font:400 clamp(12px,2.2vh,17px)/1 "Noto Serif KR",Georgia,serif;letter-spacing:.18em;color:#ead6b0;}
+  .invhead .r{display:flex;align-items:center;gap:10px;font:700 12px/1 Georgia,serif;color:var(--gold2);}
+  .invbody{display:flex;min-height:0;flex:1 1 auto;}
+  .col{padding:clamp(5px,1.1vh,11px) clamp(6px,1vw,12px);overflow-y:auto;overscroll-behavior:contain;}
+  .col.c1{flex:0 0 27%;border-right:1px solid rgba(180,146,96,.14);}
+  .col.c2{flex:1 1 auto;border-right:1px solid rgba(180,146,96,.14);}
+  .col.c3{flex:0 0 31%;display:flex;flex-direction:column;}
+  .col::-webkit-scrollbar{width:5px;}
+  .col::-webkit-scrollbar-thumb{background:#4a3c2b;border-radius:3px;}
+  .sechead{font:600 9px/1 sans-serif;letter-spacing:.2em;color:#8a7a5f;margin:0 0 6px;}
+
+  .eqslots{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:8px;}
+  .eqslot{position:relative;height:clamp(38px,8.4vh,58px);border:1px solid rgba(170,136,90,.28);border-radius:4px;
+    background:radial-gradient(circle at 50% 30%,rgba(52,42,34,.6),rgba(14,12,14,.9));display:flex;align-items:center;justify-content:center;
+    cursor:pointer;overflow:hidden;}
+  .eqslot .ei{font-size:clamp(13px,2.8vh,19px);opacity:.95;}
+  .eqslot .el{position:absolute;bottom:1px;font-size:7px;color:#7d6f59;letter-spacing:.05em;}
+  .eqslot.empty .ei{opacity:.22;}
+  .eqslot.sel{border-color:#e0b273;box-shadow:0 0 0 1px rgba(224,178,115,.35),inset 0 0 16px rgba(190,130,60,.18);}
+
+  .statlist{font-size:clamp(9px,1.62vh,11.5px);line-height:1.62;color:#a99b83;}
+  .statlist div{display:flex;justify-content:space-between;gap:6px;border-bottom:1px dotted rgba(160,130,90,.12);padding:1px 0;}
+  .statlist div b{color:#e8d6b3;font-weight:600;}
+  .statlist div.hl b{color:#f0c987;}
+  .pt{margin-top:8px;padding:6px;border:1px solid rgba(180,146,96,.2);border-radius:4px;background:rgba(30,24,20,.5);}
+  .ptline{display:flex;align-items:center;justify-content:space-between;font-size:9.5px;color:#a08f74;margin-bottom:5px;}
+  .ptline b{color:#f0d29a;font-size:12px;}
+  .autolab{display:flex;align-items:center;gap:4px;font-size:9px;color:#8d7d64;}
+  .pts{display:grid;grid-template-columns:1fr 1fr;gap:4px;}
+  .ptbtn{display:flex;justify-content:space-between;align-items:center;padding:3px 6px;border-radius:3px;border:1px solid rgba(180,146,96,.25);
+    background:rgba(20,16,14,.8);font-size:9.5px;color:#c0b096;}
+  .ptbtn span{color:#f0d29a;font-weight:700;}
+  .ptbtn:disabled{opacity:.35;}
+
+  .bag{display:grid;grid-template-columns:repeat(auto-fill,minmax(clamp(34px,7.6vh,52px),1fr));gap:clamp(3px,.7vh,6px);}
+  .islot{position:relative;aspect-ratio:1/1;border-radius:4px;border:1px solid rgba(150,122,84,.26);
+    background:radial-gradient(circle at 50% 32%,rgba(48,40,34,.5),rgba(12,10,12,.92));
+    display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;transition:.1s;}
+  .islot:active{transform:scale(.96);}
+  .islot .ii{font-size:clamp(12px,2.4vh,18px);filter:drop-shadow(0 1px 2px #000);}
+  .islot .iu{position:absolute;bottom:1px;right:2px;font:700 7px/1 monospace;color:#ffd9a0;}
+  .islot.r-common{border-color:#6a6459;}
+  .islot.r-magic{border-color:#3f6cbb;box-shadow:inset 0 0 12px rgba(60,110,200,.16);}
+  .islot.r-rare{border-color:#b89a3c;box-shadow:inset 0 0 12px rgba(200,170,60,.16);}
+  .islot.r-legend{border-color:#c2691f;box-shadow:inset 0 0 14px rgba(230,120,30,.28),0 0 10px rgba(200,100,20,.18);}
+  .islot.sel{outline:1px solid #f0d29a;outline-offset:1px;}
+  .islot .dot{position:absolute;top:2px;left:2px;width:4px;height:4px;border-radius:50%;}
+
+  .dname{font:400 clamp(12px,2.1vh,16px)/1.25 "Noto Serif KR",Georgia,serif;letter-spacing:.03em;margin-bottom:2px;}
+  .dmeta{font-size:8.5px;color:#7f725d;letter-spacing:.1em;margin-bottom:7px;text-transform:uppercase;}
+  .dmods{font-size:clamp(9px,1.7vh,11.5px);line-height:1.7;color:#b9a98e;}
+  .dmods div{display:flex;justify-content:space-between;gap:8px;}
+  .dmods b{color:#f2e0be;}
+  .dlegend{margin-top:7px;padding:6px;border-left:2px solid #c2691f;background:rgba(80,40,12,.22);border-radius:2px;
+    font-size:clamp(8.5px,1.6vh,10.5px);color:#f0b878;line-height:1.55;}
+  .dcmp{margin-top:8px;padding-top:6px;border-top:1px solid rgba(180,146,96,.18);font-size:clamp(8.5px,1.6vh,10.5px);line-height:1.7;}
+  .dcmp .up{color:#8fd18a;}
+  .dcmp .dn{color:#d9776e;}
+  .dcmp .eq{color:#8c8069;}
+  .dactions{margin-top:auto;padding-top:8px;display:flex;flex-direction:column;gap:4px;}
+  .abtn{padding:clamp(4px,1vh,7px);border-radius:3px;border:1px solid rgba(200,164,105,.35);
+    background:linear-gradient(180deg,rgba(70,48,30,.85),rgba(26,18,14,.95));font-size:clamp(9.5px,1.7vh,11.5px);
+    letter-spacing:.1em;color:#f0dcb8;}
+  .abtn:active{transform:translateY(1px);}
+  .abtn[disabled]{opacity:.35;}
+  .abtn.danger{border-color:rgba(170,70,50,.45);color:#e6a898;background:linear-gradient(180deg,rgba(70,26,20,.8),rgba(24,12,12,.95));}
+  .abtn small{display:block;font-size:8px;color:#a08a68;letter-spacing:0;margin-top:1px;}
+  .dempty{color:#6d6252;font-size:10px;text-align:center;margin-top:30%;line-height:1.7;}
+
+  /* pause / help / death */
+  #screen-pause .panel{width:min(92vw,430px);padding:clamp(14px,3vh,26px);text-align:center;gap:8px;align-items:center;}
+  #screen-pause h2{margin:0 0 2px;font:400 clamp(15px,3vh,21px)/1.2 "Noto Serif KR",Georgia,serif;letter-spacing:.16em;color:#ead6b0;}
+  .help{font-size:clamp(9px,1.7vh,11.5px);color:#a2937a;line-height:1.85;text-align:left;}
+  .help table{border-collapse:collapse;width:100%;}
+  .help td{padding:1px 4px;vertical-align:top;}
+  .help td:first-child{color:#e0c391;white-space:nowrap;font-family:monospace;font-size:.95em;}
+  #screen-death{background:radial-gradient(ellipse at 50% 45%,rgba(80,10,6,.55),rgba(3,2,4,.97) 68%);}
+  #screen-death h2{font:400 clamp(22px,5vh,38px)/1.1 "Noto Serif KR",Georgia,serif;color:#d4553f;letter-spacing:.16em;
+    text-shadow:0 0 30px rgba(190,40,20,.5);margin:0 0 6px;}
+  #screen-death .p{color:#a08f78;font-size:11px;line-height:1.8;margin-bottom:14px;}
+
+  /* boss bar */
+  #bossbar{position:fixed;left:50%;transform:translateX(-50%);top:calc(var(--pad) + env(safe-area-inset-top));width:min(58vw,520px);
+    z-index:22;pointer-events:none;display:none;}
+  #bossbar .bn{text-align:center;font:400 clamp(10px,1.9vh,13px)/1.3 "Noto Serif KR",Georgia,serif;color:#e8cfa4;letter-spacing:.16em;
+    text-shadow:0 2px 6px #000;margin-bottom:2px;}
+  #bossbar .bt{height:9px;border-radius:2px;background:rgba(0,0,0,.8);border:1px solid rgba(200,164,105,.4);overflow:hidden;box-shadow:0 2px 10px #000;}
+  #bossbar .bt i{display:block;height:100%;width:100%;background:linear-gradient(180deg,#d3492f,#7a130d);transition:width .15s;}
+
+  /* banners, toasts */
+  #banner{position:fixed;left:0;right:0;top:34%;text-align:center;z-index:50;pointer-events:none;opacity:0;transition:opacity .5s;}
+  #banner b{display:block;font:400 clamp(20px,5.4vh,40px)/1.1 "Noto Serif KR",Georgia,serif;color:#f0dcb4;letter-spacing:.22em;
+    text-shadow:0 0 34px rgba(220,150,60,.5),0 4px 18px #000;}
+  #banner span{display:block;font-size:clamp(8px,1.6vh,11px);color:#a88f68;letter-spacing:.34em;margin-top:5px;}
+  #banner.on{opacity:1;}
+  #toasts{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--pad) + 20vh);z-index:55;display:flex;flex-direction:column;
+    align-items:center;gap:3px;pointer-events:none;}
+  .toast{font-size:clamp(9px,1.7vh,11.5px);padding:3px 10px;border-radius:12px;background:rgba(8,6,10,.85);
+    border:1px solid rgba(180,146,96,.3);color:#dcc9a6;letter-spacing:.05em;animation:tin .25s ease both;}
+  @keyframes tin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .toast.warn{border-color:rgba(190,80,50,.5);color:#efb39e;}
+  .toast.leg{border-color:rgba(214,120,30,.7);color:#ffbe7a;box-shadow:0 0 18px rgba(200,110,20,.3);}
+
+  #rotate{position:fixed;inset:0;z-index:90;display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px;
+    background:#050408;color:#b7a68c;font-size:13px;letter-spacing:.1em;text-align:center;padding:20px;}
+  #rotate .ico{font-size:34px;animation:rot 1.8s ease-in-out infinite;}
+  @keyframes rot{0%,45%{transform:rotate(0)}70%,100%{transform:rotate(90deg)}}
+  @media (orientation:portrait){ #rotate{display:flex;} }
+  #errbox{position:fixed;left:4px;bottom:4px;z-index:99;max-width:70vw;font:10px/1.4 monospace;color:#ff9d8a;
+    background:rgba(30,0,0,.85);padding:3px 6px;border-radius:3px;display:none;white-space:pre-wrap;}
+  #flash{position:fixed;inset:0;z-index:25;pointer-events:none;background:radial-gradient(ellipse at 50% 50%,transparent 40%,rgba(150,10,5,.55));
+    opacity:0;transition:opacity .28s;}
+  #lvlflash{position:fixed;inset:0;z-index:24;pointer-events:none;background:radial-gradient(ellipse at 50% 50%,rgba(255,210,120,.22),transparent 62%);
+    opacity:0;transition:opacity .5s;}
+  .vignette{position:fixed;inset:0;z-index:10;pointer-events:none;
+    background:radial-gradient(ellipse at 50% 50%,transparent 52%,rgba(0,0,0,.55) 100%);}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div class="vignette"></div>
+<div id="flash"></div>
+<div id="lvlflash"></div>
+
+<div id="hud">
+  <div class="tl">
+    <div class="lvrow"><span class="lv">Lv <b id="hud-lv">1</b></span><span class="cls" id="hud-cls">야만용사</span></div>
+    <div class="bar hp"><i id="hud-hp"></i><span id="hud-hptxt"></span></div>
+    <div class="bar mp"><i id="hud-mp"></i></div>
+    <div class="bar xp"><i id="hud-xp"></i></div>
+    <div class="gold">◈ <span id="hud-gold">0</span><em>GOLD</em></div>
+    <div class="depth" id="hud-depth">1층 · 잊힌 회랑</div>
+  </div>
+  <div class="tr">
+    <canvas id="minimap" width="150" height="150"></canvas>
+    <div class="topbtns">
+      <button class="mini" id="btn-inv">가방<span class="k">E</span></button>
+      <button class="mini" id="btn-mute">♪</button>
+      <button class="mini" id="btn-pause">☰</button>
+    </div>
+  </div>
+</div>
+
+<div id="bossbar"><div class="bn" id="boss-name"></div><div class="bt"><i id="boss-fill"></i></div></div>
+
+<div id="actions">
+  <div id="skills"></div>
+  <div id="mainrow"></div>
+</div>
+
+<div id="banner"><b id="banner-t"></b><span id="banner-s"></span></div>
+<div id="toasts"></div>
+
+<!-- TITLE -->
+<div id="screen-title" class="screen">
+  <div class="titlewrap">
+    <div class="rune">☠</div>
+    <h1>그림자 성채</h1>
+    <div class="sub serif">SHADOW CRYPT</div>
+    <div class="menu">
+      <button class="big" id="btn-continue">이어하기</button>
+      <button class="big sec" id="btn-new">새 게임</button>
+      <button class="ghost" id="btn-help">조작법</button>
+    </div>
+    <div class="hint">어둠이 내려앉은 성채, 끝없이 이어지는 층.<br>가로 화면 양손 조작 · PC 키보드/마우스</div>
+  </div>
+</div>
+
+<!-- CLASS SELECT -->
+<div id="screen-class" class="screen hidden">
+  <div class="classwrap">
+    <h2>운명을 고르십시오</h2>
+    <div class="cs serif">CHOOSE YOUR CLASS</div>
+    <div class="cards">
+      <div class="card" data-class="warrior">
+        <div class="em">⚔️</div>
+        <h3>야만용사</h3>
+        <div class="tag">근접 광역 · 높은 생명력</div>
+        <ul>
+          <li>회전베기 — 주변을 휩쓰는 광역 공격</li>
+          <li>도약 강타 — 뛰어내려 충격파</li>
+          <li>전투 함성 — 공격/방어 강화</li>
+        </ul>
+        <button class="pick">선택</button>
+      </div>
+      <div class="card" data-class="mage">
+        <div class="em">✦</div>
+        <h3>원소술사</h3>
+        <div class="tag">원거리 폭발 · 광역 마법</div>
+        <ul>
+          <li>화염구 — 폭발하는 불덩이</li>
+          <li>빙결 파동 — 주변 적 빙결</li>
+          <li>유성 낙하 — 거대 광역 피해</li>
+        </ul>
+        <button class="pick">선택</button>
+      </div>
+      <div class="card" data-class="ranger">
+        <div class="em">🏹</div>
+        <h3>악마사냥꾼</h3>
+        <div class="tag">원거리 연사 · 기동성</div>
+        <ul>
+          <li>연발 사격 — 부채꼴 5발</li>
+          <li>관통 화살 — 관통 단일 강타</li>
+          <li>연막 도약 — 후방 회피·가속</li>
+        </ul>
+        <button class="pick">선택</button>
+      </div>
+    </div>
+    <button class="ghost cback" id="btn-class-back">← 돌아가기</button>
+  </div>
+</div>
+
+<!-- INVENTORY -->
+<div id="screen-inv" class="screen hidden">
+  <div class="panel">
+    <div class="invhead">
+      <h2>장비 · 가방</h2>
+      <div class="r"><span id="inv-gold">◈ 0</span><button class="ghost" id="btn-inv-close">닫기 ✕</button></div>
+    </div>
+    <div class="invbody">
+      <div class="col c1">
+        <div class="sechead">장 착</div>
+        <div class="eqslots" id="eqslots"></div>
+        <div class="sechead">능 력 치</div>
+        <div class="statlist" id="statlist"></div>
+      </div>
+      <div class="col c2">
+        <div class="sechead">가 방 <span id="bagcap" style="color:#6d6252"></span></div>
+        <div class="bag" id="baggrid"></div>
+        <div class="pt" id="ptbox">
+          <div class="ptline"><span>스탯 포인트 <b id="ptnum">0</b></span>
+            <label class="autolab"><input type="checkbox" id="autostat"> 자동 분배</label></div>
+          <div class="pts" id="ptbtns"></div>
+        </div>
+      </div>
+      <div class="col c3" id="detail"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PAUSE -->
+<div id="screen-pause" class="screen hidden">
+  <div class="panel">
+    <h2>일시 정지</h2>
+    <button class="big" id="btn-resume">계 속</button>
+    <button class="big sec" id="btn-help2">조 작 법</button>
+    <button class="big sec" id="btn-mute2">소리 끄기</button>
+    <button class="big sec" id="btn-restart">새 게임 시작</button>
+    <div class="hint" id="pause-info"></div>
+  </div>
+</div>
+
+<!-- HELP -->
+<div id="screen-help" class="screen hidden">
+  <div class="panel" style="width:min(94vw,620px);padding:clamp(14px,3vh,26px);gap:10px;max-height:92vh;overflow:auto;">
+    <h2 style="margin:0;font:400 clamp(15px,3vh,20px)/1.2 'Noto Serif KR',Georgia,serif;letter-spacing:.16em;color:#ead6b0;text-align:center;">조 작 법</h2>
+    <div class="help">
+      <table>
+        <tr><td>이동</td><td>왼쪽 화면 어디든 터치해 조이스틱 (터치한 곳 기준) · PC: WASD / 방향키</td></tr>
+        <tr><td>공격</td><td>오른쪽 큰 붉은 버튼(길게 누르면 연타) · PC: J / Space / 마우스 왼쪽</td></tr>
+        <tr><td>스킬</td><td>오른쪽 위 3개 버튼 · PC: 1 2 3 (또는 U I O)</td></tr>
+        <tr><td>대시</td><td>회피 버튼 · PC: Shift</td></tr>
+        <tr><td>물약</td><td>물약 버튼 · PC: Q</td></tr>
+        <tr><td>가방</td><td>가방 버튼 · PC: E / Tab</td></tr>
+        <tr><td>일시정지</td><td>☰ 버튼 · PC: Esc</td></tr>
+        <tr><td>루팅</td><td>아이템에 다가가면 자동 획득 · 아이템을 직접 터치해도 획득</td></tr>
+      </table>
+      <p style="margin:10px 0 0;color:#8f8067;">보스를 쓰러뜨리면 균열이 열립니다. 균열로 들어가면 더 깊은 층으로. 층이 깊을수록 장비 등급이 좋아집니다.<br>죽으면 골드 절반을 잃고 같은 층 입구에서 되살아납니다.</p>
+    </div>
+    <button class="big sec" id="btn-help-close" style="align-self:center;">닫 기</button>
+  </div>
+</div>
+
+<!-- DEATH -->
+<div id="screen-death" class="screen hidden">
+  <div class="titlewrap">
+    <h2>당신은 쓰러졌다</h2>
+    <div class="p" id="death-info"></div>
+    <div class="menu">
+      <button class="big" id="btn-revive">되 살 아 나 기</button>
+      <button class="big sec" id="btn-death-new">새 게임</button>
+    </div>
+  </div>
+</div>
+
+<div id="rotate"><div class="ico">📱</div><div>가로로 돌려 주세요<br><span style="font-size:10px;color:#6b6153">SHADOW CRYPT는 가로 화면에 맞춰져 있습니다</span></div></div>
+<div id="errbox"></div>
+
+<script src="game.js"></script>
+</body>
+</html>
