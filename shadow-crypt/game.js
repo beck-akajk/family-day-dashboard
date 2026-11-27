@@ -740,6 +740,7 @@ function hurtPlayer(dmg, sx, sy) {
   if (p.invuln > 0) return;
   var red = p.stats.armor / (p.stats.armor + 95);
   var take = Math.max(1, dmg * (1 - red));
+  if (!isFinite(take)) take = 1;
   if (p.buffT > 0) take *= 0.7;
   p.hp -= take;
   p.lastHit = G.time;
@@ -760,7 +761,7 @@ function playerDeath() {
   burst(p.x, p.y, 30, '#8d1f19', 300, 4);
   var info = $('death-info');
   if (info) info.innerHTML = 'Lv.' + p.level + ' · ' + G.floor + '층에서 쓰러졌습니다<br>골드 ' + fmt(Math.floor(p.gold * 0.5)) + '을 잃고 입구에서 되살아납니다';
-  show('death');
+  show('screen-death');
 }
 function killEnemy(e) {
   if (e.dead) return;
@@ -1164,7 +1165,7 @@ function updateEnemy(e, dt) {
   e.slowT = Math.max(0, e.slowT - dt);
   if (e.aggroT > 0) { e.aggroT -= dt; if (e.aggroT <= 0) e.aggro = false; }
   var d = dist(e.x, e.y, p.x, p.y);
-  if (!e.aggro && d < 470) e.aggro = true;
+  if (!e.aggro && d < 400 && los(e.x, e.y, p.x, p.y)) e.aggro = true;
   if (e.aggro) e.aggroT = Math.max(e.aggroT, 4);
 
   // knockback
@@ -1451,7 +1452,14 @@ function step(dt) {
   updatePlayer(dt);
   G.flowTimer -= dt;
   if (G.flowTimer <= 0) { G.flowTimer = 0.3; computeFlow(); }
-  for (var i = 0; i < G.enemies.length; i++) updateEnemy(G.enemies[i], dt);
+  for (var i = 0; i < G.enemies.length; i++) {
+    var en = G.enemies[i];
+    updateEnemy(en, dt);
+    if (!isFinite(en.x) || !isFinite(en.y)) {
+      logErr('enemy ' + en.type + ' position lost');
+      en.dead = true; en.deadT = 0;
+    }
+  }
   for (var j = G.enemies.length - 1; j >= 0; j--) {
     if (G.enemies[j].dead && G.enemies[j].deadT <= 0) G.enemies.splice(j, 1);
   }
@@ -1902,6 +1910,7 @@ function drawPlayer() {
 }
 
 function drawEnemy(e) {
+  if (!isFinite(e.x) || !isFinite(e.y)) return;
   var x = e.x, y = e.y;
   var bob = Math.sin(e.anim) * (e.ghost ? 3 : 1.4);
   var fx = e.facing < 0 ? -1 : 1;
@@ -2785,15 +2794,19 @@ function frame(ts) {
   G.lastTs = ts;
   if (!isFinite(dt) || dt < 0) dt = 0.016;
   dt = Math.min(0.05, dt);
-  if (G.state === 'play') {
-    step(dt);
-  } else if (G.state === 'death' || G.state === 'pause' || G.state === 'inv') {
-    G.time += dt;
-    G.shake = Math.max(0, G.shake - dt * 26);
-  } else {
-    G.time += dt;
+  try {
+    if (G.state === 'play') {
+      step(dt);
+    } else if (G.state === 'death' || G.state === 'pause' || G.state === 'inv') {
+      G.time += dt;
+      G.shake = Math.max(0, G.shake - dt * 26);
+    } else {
+      G.time += dt;
+    }
+    if (G.player) render();
+  } catch (err) {
+    if (!G._frameErr || G.time - G._frameErr > 3) { G._frameErr = G.time; logErr('frame: ' + err.message); }
   }
-  if (G.player) render();
 }
 
 function init() {
