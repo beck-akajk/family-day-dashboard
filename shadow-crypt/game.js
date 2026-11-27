@@ -277,7 +277,10 @@ function makeItem(ilvl, opt) {
     if (L) { it.power = L.id; it.name = L.name; }
     else it.name = '심연의 ' + base;
   } else {
-    it.name = (PREFIX[rarity] && chance(0.7) ? pick(PREFIX[rarity]) + ' ' : '') + base + (chance(0.55) ? ' ' + pick(SUFFIX) : '');
+    var mod = '';
+    if (PREFIX[rarity] && chance(0.5)) mod = pick(PREFIX[rarity]) + ' ';
+    else if (chance(0.55)) mod = pick(SUFFIX) + ' ';
+    it.name = mod + base;
   }
   return it;
 }
@@ -778,6 +781,10 @@ function killEnemy(e) {
   p.gold += gold;
   addFloat(e.x, e.y - 30, '+' + fmt(gold) + ' G', '#f0cf8a', 12);
   if (!e.boss) Sound.gold();
+  if (!e.boss && p.potions < 9 && chance(e.elite ? 0.4 : 0.09)) {
+    p.potions++;
+    addFloat(e.x, e.y - 44, '+물약', '#e0a878', 11);
+  }
   // loot
   var rolls = e.boss ? 3 : e.elite ? 2 : 1;
   for (var i = 0; i < rolls; i++) {
@@ -1061,7 +1068,7 @@ function makeEnemy(typeKey, x, y, floor, elite) {
   var e = {
     type: typeKey, name: T.name, x: x, y: y, r: T.r, kind: T.kind,
     hp: Math.round(T.hp * sc * (elite ? 2.8 : 1)), maxHp: 1,
-    dmg: T.dmg * (1 + (floor - 1) * 0.22) * (elite ? 1.45 : 1),
+    dmg: T.dmg * 0.88 * (1 + (floor - 1) * 0.22) * (elite ? 1.45 : 1),
     speed: T.speed * (elite ? 1.06 : 1), range: T.range, atkCd: rnd(0.3, 1), atkCdMax: T.cd,
     xp: T.xp * (1 + (floor - 1) * 0.5) * (elite ? 3 : 1),
     armor: T.kind === 'melee' && T.r > 18 ? 22 : 6,
@@ -1289,6 +1296,11 @@ function updatePlayer(dt) {
   p.hasteT = Math.max(0, p.hasteT - dt);
   for (var i = 0; i < 3; i++) p.skillCd[i] = Math.max(0, p.skillCd[i] - dt);
   p.mp = Math.min(p.maxMp, p.mp + (p.cls === 'mage' ? 9 : 7.5) * dt);
+  if (G.time - p.lastHit > 7 && p.hp < p.maxHp) {
+    p.hp = Math.min(p.maxHp, p.hp + p.maxHp * 0.012 * dt);
+    p.regenFx = (p.regenFx || 0) + dt;
+    if (p.regenFx > 1.1) { p.regenFx = 0; G.particles.push({ x: p.x + rnd(-8, 8), y: p.y + rnd(-4, 8), vx: 0, vy: -18, life: 0.7, maxLife: 0.7, size: 2.5, color: 'rgba(150,220,140,', grav: 0 }); }
+  }
 
   // leap
   if (p.leap) {
@@ -1815,7 +1827,7 @@ function drawPlayer() {
 
   var fx = p.facing.x < 0 ? -1 : 1;
   ctx.translate(x, y);
-  ctx.scale(fx, 1);
+  ctx.scale(fx * 1.16, 1.16);
   var col = C.color, dark = shade(col, -0.55), light = shade(col, 0.35);
 
   // cape
@@ -2350,7 +2362,7 @@ function updateBossBar() {
   var bar = $('bossbar');
   if (!bar) return;
   var b = G.boss;
-  if (b && !b.dead && G.player && !G.player.dead && dist(b.x, b.y, G.player.x, G.player.y) < 820) {
+  if (b && !b.dead && G.player && !G.player.dead && dist(b.x, b.y, G.player.x, G.player.y) < 560) {
     bar.style.display = 'block';
     $('boss-name').textContent = b.name;
     $('boss-fill').style.width = clamp(b.hp / b.maxHp * 100, 0, 100) + '%';
