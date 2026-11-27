@@ -1079,7 +1079,7 @@ function makeBoss(x, y, floor) {
     type: 'boss', name: B.name, x: x, y: y, r: 34, kind: 'melee', boss: true,
     hp: Math.round(520 * sc), maxHp: 1, dmg: 20 * (1 + (floor - 1) * 0.22),
     speed: 62, range: 62, atkCd: 1.2, atkCdMax: 1.5, xp: 260 * (1 + (floor - 1) * 0.6),
-    armor: 30, color: '#9a3d2e', dark: '#4a1a14', elite: false, aggro: true, aggroT: 999,
+    armor: 30, color: '#9a3d2e', dark: '#4a1a14', elite: false, aggro: false, aggroT: 0,
     hitFlash: 0, slowT: 0, kx: 0, ky: 0, dead: false, deadT: 0, anim: 0, facing: 1,
     abilityCd: 3.5, abilIdx: 0, phase: 1
   };
@@ -1232,7 +1232,7 @@ function updateEnemy(e, dt) {
   if (e.lunge > 0) e.lunge -= dt;
 
   // boss abilities
-  if (e.boss) {
+  if (e.boss && e.aggro && d < 760) {
     e.abilityCd -= dt;
     if (e.abilityCd <= 0) {
       e.abilityCd = 5.2;
@@ -1487,7 +1487,7 @@ function enterFloor(floor) {
   G.portal = null; G.boss = null;
   spawnFloorEnemies(floor);
   computeFlow();
-  G.zoom = clamp(Math.max(G.view.h / 440, G.view.w / 1500), 0.8, 1.4);
+  G.zoom = clamp(Math.max(G.view.h / 420, G.view.w / 1450), 0.92, 1.5);
   G.cam.x = clamp(p.x - G.view.w / G.zoom / 2, 0, Math.max(0, MAPW * TILE - G.view.w / G.zoom));
   G.cam.y = clamp(p.y - G.view.h / G.zoom / 2, 0, Math.max(0, MAPH * TILE - G.view.h / G.zoom));
   banner(floor + '층', THEMES[G.theme].name);
@@ -2103,7 +2103,7 @@ function drawLighting() {
   var W = lcv.width, H = lcv.height;
   lc.setTransform(1, 0, 0, 1, 0, 0);
   lc.clearRect(0, 0, W, H);
-  lc.fillStyle = 'rgba(4,4,8,0.88)';
+  lc.fillStyle = 'rgba(3,3,7,0.925)';
   lc.fillRect(0, 0, W, H);
   lc.globalCompositeOperation = 'destination-out';
   function hole(sx, sy, rad, strength) {
@@ -2118,7 +2118,7 @@ function drawLighting() {
   var p = G.player;
   var ps = worldToScreen(p.x, p.y);
   var pr = (300 + Math.sin(G.time * 2) * 6) * G.zoom * (p.buffT > 0 ? 1.12 : 1);
-  hole(ps.x * dpr, ps.y * dpr, pr * dpr, 0.97);
+  hole(ps.x * dpr, ps.y * dpr, pr * dpr, 1);
   for (var i = 0; i < G.torches.length; i++) {
     var t = G.torches[i];
     var s = worldToScreen(t.x, t.y);
@@ -2338,7 +2338,7 @@ function updateBossBar() {
   var bar = $('bossbar');
   if (!bar) return;
   var b = G.boss;
-  if (b && !b.dead && G.player && !G.player.dead) {
+  if (b && !b.dead && G.player && !G.player.dead && dist(b.x, b.y, G.player.x, G.player.y) < 820) {
     bar.style.display = 'block';
     $('boss-name').textContent = b.name;
     $('boss-fill').style.width = clamp(b.hp / b.maxHp * 100, 0, 100) + '%';
@@ -2768,7 +2768,7 @@ function resize() {
   canvas.height = Math.round(h * dpr);
   canvas.style.width = w + 'px';
   canvas.style.height = h + 'px';
-  G.zoom = clamp(Math.max(h / 440, w / 1500), 0.8, 1.4);
+  G.zoom = clamp(Math.max(h / 420, w / 1450), 0.92, 1.5);
   if (!G.lightCanvas) { G.lightCanvas = document.createElement('canvas'); G.lightCtx = G.lightCanvas.getContext('2d'); }
   G.lightCanvas.width = Math.round(w * dpr);
   G.lightCanvas.height = Math.round(h * dpr);
@@ -2817,6 +2817,7 @@ function init() {
     cb.classList.add('hidden');
   }
   show('screen-title');
+  window.__gc = { G: G, makeItem: makeItem, dropItem: dropItem, damageEnemy: damageEnemy, killEnemy: killEnemy, enterFloor: enterFloor, spawnProj: spawnProj, renderInv: renderInv };
   requestAnimationFrame(frame);
 }
 
