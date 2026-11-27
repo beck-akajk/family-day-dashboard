@@ -2437,6 +2437,7 @@ function openInv() {
   if (!G.player || G.player.dead) return;
   G.state = 'inv';
   G.atkHeld = false;
+  G.joy.active = false; G.joy.mag = 0; G.joy.dx = 0; G.joy.dy = 0;
   if (!G.sel) G.sel = { kind: 'bag', i: 0 };
   renderInv();
   show('screen-inv');
@@ -2617,6 +2618,7 @@ function upgradeSelected() {
 function togglePause() {
   if (G.state === 'play') {
     G.state = 'pause'; G.atkHeld = false;
+    G.joy.active = false; G.joy.mag = 0; G.joy.dx = 0; G.joy.dy = 0;
     $('pause-info').innerHTML = 'Lv.' + G.player.level + ' · ' + G.floor + '층<br>처치 ' + G.player.kills + ' · 골드 ' + fmt(G.player.gold);
     show('screen-pause');
   } else if (G.state === 'pause') {
