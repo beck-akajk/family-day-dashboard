@@ -777,7 +777,7 @@ function killEnemy(e) {
   // xp & gold
   var xp = Math.round(e.xp);
   addXp(xp);
-  var gold = Math.round((e.boss ? 260 : e.elite ? 55 : 12) * (0.8 + G.floor * 0.25) * (1 + p.stats.gold / 100) * rnd(0.8, 1.2));
+  var gold = Math.round((e.boss ? 260 : e.tier === 2 ? 110 : e.elite ? 55 : 12) * (0.8 + G.floor * 0.25) * (1 + p.stats.gold / 100) * rnd(0.8, 1.2));
   p.gold += gold;
   addFloat(e.x, e.y - 30, '+' + fmt(gold) + ' G', '#f0cf8a', 12);
   if (!e.boss) Sound.gold();
@@ -786,11 +786,11 @@ function killEnemy(e) {
     addFloat(e.x, e.y - 44, '+물약', '#e0a878', 11);
   }
   // loot
-  var rolls = e.boss ? 3 : e.elite ? 2 : 1;
+  var rolls = e.boss ? 3 : e.tier === 2 ? 3 : e.elite ? 2 : 1;
   for (var i = 0; i < rolls; i++) {
-    var ch = e.boss ? 1 : e.elite ? 0.85 : 0.16;
+    var ch = e.boss ? 1 : e.tier === 2 ? 1 : e.elite ? 0.85 : 0.16;
     if (chance(ch)) {
-      var it = makeItem(Math.max(1, G.floor * 2 + irnd(-1, 3)), { luck: e.boss ? 3 : e.elite ? 1.6 : 1 });
+      var it = makeItem(Math.max(1, G.floor * 2 + irnd(-1, 3)), { luck: e.boss ? 3 : e.tier === 2 ? 2.2 : e.elite ? 1.6 : 1 });
       dropItem(e.x + rnd(-24, 24), e.y + rnd(-20, 20), it);
     }
   }
@@ -1064,16 +1064,19 @@ function playerDamageValue(mult) {
    ===================================================================== */
 function makeEnemy(typeKey, x, y, floor, elite) {
   var T = ETYPES[typeKey];
+  var tier = (elite === true) ? 1 : (elite || 0);
+  var hpM = tier === 2 ? 4.2 : tier === 1 ? 2.8 : 1;
+  var dmM = tier === 2 ? 1.8 : tier === 1 ? 1.45 : 1;
   var sc = 1 + (floor - 1) * 0.34;
   var e = {
     type: typeKey, name: T.name, x: x, y: y, r: T.r, kind: T.kind,
-    hp: Math.round(T.hp * sc * (elite ? 2.8 : 1)), maxHp: 1,
-    dmg: T.dmg * 0.88 * (1 + (floor - 1) * 0.22) * (elite ? 1.45 : 1),
-    speed: T.speed * (elite ? 1.06 : 1), range: T.range, atkCd: rnd(0.3, 1), atkCdMax: T.cd,
-    xp: T.xp * (1 + (floor - 1) * 0.5) * (elite ? 3 : 1),
+    hp: Math.round(T.hp * sc * hpM), maxHp: 1,
+    dmg: T.dmg * 0.88 * (1 + (floor - 1) * 0.22) * dmM,
+    speed: T.speed * (tier ? 1.06 : 1), range: T.range, atkCd: rnd(0.3, 1), atkCdMax: T.cd,
+    xp: T.xp * (1 + (floor - 1) * 0.5) * (tier === 2 ? 4.2 : tier === 1 ? 3 : 1),
     armor: T.kind === 'melee' && T.r > 18 ? 22 : 6,
     color: T.color, dark: T.dark, ghost: !!T.ghost, pspd: T.pspd || 240,
-    elite: !!elite, boss: false, aggro: false, aggroT: 0, hitFlash: 0, slowT: 0,
+    elite: tier > 0, tier: tier, boss: false, aggro: false, aggroT: 0, hitFlash: 0, slowT: 0,
     kx: 0, ky: 0, dead: false, deadT: 0, anim: Math.random() * 6.28, wander: 0, wanderA: Math.random() * 6.28,
     facing: 1
   };
@@ -1108,7 +1111,7 @@ function spawnFloorEnemies(floor) {
       if (collideCircle(x, y, 16)) continue;
       if (dist(x, y, G.player.x, G.player.y) < 220) continue;
       var key = pick(pool);
-      var elite = chance(0.09 + Math.min(0.1, floor * 0.01));
+      var elite = chance(0.035) ? 2 : (chance(0.085 + Math.min(0.1, floor * 0.01)) ? 1 : 0);
       var e = makeEnemy(key, x, y, floor, elite);
       G.enemies.push(e);
     }
@@ -1935,7 +1938,7 @@ function drawEnemy(e) {
   ctx.beginPath(); ctx.ellipse(x, y + e.r * 0.75, e.r * 0.85, e.r * 0.32, 0, 0, 6.283); ctx.fill();
   // elite aura
   if (e.elite || e.boss) {
-    var col = e.boss ? 'rgba(220,70,40,' : 'rgba(240,200,80,';
+    var col = e.boss ? 'rgba(220,70,40,' : (e.tier === 2 ? 'rgba(90,150,255,' : 'rgba(240,200,80,');
     var pl = 0.45 + Math.sin(G.time * 4 + e.anim) * 0.2;
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
@@ -2060,7 +2063,7 @@ function drawEnemy(e) {
     var bx = x - w / 2, by = y - e.r - (e.elite ? 20 : 14);
     ctx.fillStyle = 'rgba(0,0,0,.7)';
     ctx.fillRect(bx - 1, by - 1, w + 2, hh + 2);
-    ctx.fillStyle = e.elite ? '#e8c85a' : '#c23a2a';
+    ctx.fillStyle = e.tier === 2 ? '#5f9bff' : e.elite ? '#e8c85a' : '#c23a2a';
     ctx.fillRect(bx, by, w * clamp(e.hp / e.maxHp, 0, 1), hh);
   }
 }
