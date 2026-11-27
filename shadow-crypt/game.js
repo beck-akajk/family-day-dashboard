@@ -2146,27 +2146,27 @@ function drawLighting() {
   }
   var p = G.player;
   var ps = worldToScreen(p.x, p.y);
-  var pr = (272 + Math.sin(G.time * 2) * 5) * G.zoom * (p.buffT > 0 ? 1.12 : 1);
+  var pr = clamp(v.h * 0.56, 205, 430) * (p.buffT > 0 ? 1.1 : 1);
   hole(ps.x * dpr, ps.y * dpr, pr * dpr, 1);
   for (var i = 0; i < G.torches.length; i++) {
     var t = G.torches[i];
     var s = worldToScreen(t.x, t.y);
     if (s.x < -160 || s.y < -160 || s.x > v.w + 160 || s.y > v.h + 160) continue;
     var fl = 0.85 + Math.sin(G.time * 8 + t.phase) * 0.13;
-    hole(s.x * dpr, s.y * dpr, 158 * G.zoom * fl * dpr, 0.78);
+    hole(s.x * dpr, s.y * dpr, clamp(v.h * 0.30, 105, 235) * fl * dpr, 0.8);
   }
   for (var j = 0; j < G.projectiles.length; j++) {
     var q = G.projectiles[j], qs = worldToScreen(q.x, q.y);
-    hole(qs.x * dpr, qs.y * dpr, 70 * G.zoom * dpr, 0.5);
+    hole(qs.x * dpr, qs.y * dpr, clamp(v.h * 0.13, 50, 110) * dpr, 0.5);
   }
   if (G.portal) {
     var o = worldToScreen(G.portal.x, G.portal.y);
-    hole(o.x * dpr, o.y * dpr, 200 * G.zoom * dpr, 0.75);
+    hole(o.x * dpr, o.y * dpr, clamp(v.h * 0.38, 150, 300) * dpr, 0.75);
   }
   for (var k = 0; k < G.items.length; k++) {
     var it = worldToScreen(G.items[k].x, G.items[k].y);
     if (it.x < -60 || it.x > v.w + 60 || it.y < -60 || it.y > v.h + 60) continue;
-    hole(it.x * dpr, it.y * dpr, 60 * G.zoom * dpr, 0.4);
+    hole(it.x * dpr, it.y * dpr, clamp(v.h * 0.11, 42, 90) * dpr, 0.4);
   }
   lc.globalCompositeOperation = 'source-over';
 
