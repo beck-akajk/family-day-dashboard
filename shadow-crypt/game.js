@@ -153,10 +153,10 @@ var CLASSES = {
 };
 
 var THEMES = [
-  { name: '잊힌 회랑', floor: '#2c2a2f', floor2: '#26242a', wall: '#3b373d', wall2: '#211e24', mortar: '#141216', accent: '#c8803f', fog: '#050508' },
-  { name: '핏빛 성당', floor: '#332528', floor2: '#2a1e21', wall: '#4b2c2b', wall2: '#2a1919', mortar: '#170e10', accent: '#c2452c', fog: '#080406' },
-  { name: '뼈의 심연', floor: '#26292b', floor2: '#202325', wall: '#3f4446', wall2: '#232728', mortar: '#111415', accent: '#8fc0a8', fog: '#040607' },
-  { name: '심연의 왕좌', floor: '#241f30', floor2: '#1e1a29', wall: '#352c48', wall2: '#1d1829', mortar: '#0e0b15', accent: '#9b6fd6', fog: '#050308' }
+  { name: '잊힌 회랑', floor: '#262329', floor2: '#201e24', wall: '#332f37', wall2: '#1b191f', mortar: '#100e13', accent: '#c8803f', fog: '#040307' },
+  { name: '핏빛 성당', floor: '#2c2023', floor2: '#241a1d', wall: '#422726', wall2: '#241617', mortar: '#140b0d', accent: '#c2452c', fog: '#070305' },
+  { name: '뼈의 심연', floor: '#212426', floor2: '#1c1f21', wall: '#383d3f', wall2: '#1f2324', mortar: '#0e1112', accent: '#8fc0a8', fog: '#030506' },
+  { name: '심연의 왕좌', floor: '#201c2b', floor2: '#1a1725', wall: '#302843', wall2: '#191525', mortar: '#0b0912', accent: '#9b6fd6', fog: '#040207' }
 ];
 
 var BOSSES = [
@@ -451,8 +451,10 @@ function paintDungeon() {
     c.fillStyle = shade(h > 0.5 ? th.floor : th.floor2, (h - 0.5) * 0.22);
     c.fillRect(px, py, TILE, TILE);
     // slab bevel
-    c.strokeStyle = 'rgba(0,0,0,.42)'; c.lineWidth = 1;
+    c.strokeStyle = 'rgba(0,0,0,.30)'; c.lineWidth = 1;
     c.strokeRect(px + 1.5, py + 1.5, TILE - 3, TILE - 3);
+    c.fillStyle = 'rgba(0,0,0,' + (0.03 + h * 0.07) + ')';
+    c.fillRect(px + 3 + h2 * 10, py + 3 + h * 8, 12 + h2 * 14, 9 + h * 12);
     c.strokeStyle = 'rgba(255,235,205,.035)';
     c.beginPath(); c.moveTo(px + 2, py + TILE - 2); c.lineTo(px + 2, py + 2); c.lineTo(px + TILE - 2, py + 2); c.stroke();
     // cracks / rubble
@@ -2130,7 +2132,7 @@ function drawLighting() {
   var W = lcv.width, H = lcv.height;
   lc.setTransform(1, 0, 0, 1, 0, 0);
   lc.clearRect(0, 0, W, H);
-  lc.fillStyle = 'rgba(3,3,7,0.925)';
+  lc.fillStyle = 'rgba(2,2,5,0.945)';
   lc.fillRect(0, 0, W, H);
   lc.globalCompositeOperation = 'destination-out';
   function hole(sx, sy, rad, strength) {
@@ -2144,14 +2146,14 @@ function drawLighting() {
   }
   var p = G.player;
   var ps = worldToScreen(p.x, p.y);
-  var pr = (300 + Math.sin(G.time * 2) * 6) * G.zoom * (p.buffT > 0 ? 1.12 : 1);
+  var pr = (272 + Math.sin(G.time * 2) * 5) * G.zoom * (p.buffT > 0 ? 1.12 : 1);
   hole(ps.x * dpr, ps.y * dpr, pr * dpr, 1);
   for (var i = 0; i < G.torches.length; i++) {
     var t = G.torches[i];
     var s = worldToScreen(t.x, t.y);
     if (s.x < -160 || s.y < -160 || s.x > v.w + 160 || s.y > v.h + 160) continue;
     var fl = 0.85 + Math.sin(G.time * 8 + t.phase) * 0.13;
-    hole(s.x * dpr, s.y * dpr, 175 * G.zoom * fl * dpr, 0.8);
+    hole(s.x * dpr, s.y * dpr, 158 * G.zoom * fl * dpr, 0.78);
   }
   for (var j = 0; j < G.projectiles.length; j++) {
     var q = G.projectiles[j], qs = worldToScreen(q.x, q.y);
