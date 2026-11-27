@@ -1082,6 +1082,7 @@ function makeBoss(x, y, floor) {
     speed: 62, range: 62, atkCd: 1.2, atkCdMax: 1.5, xp: 260 * (1 + (floor - 1) * 0.6),
     armor: 30, color: '#9a3d2e', dark: '#4a1a14', elite: false, aggro: false, aggroT: 0,
     hitFlash: 0, slowT: 0, kx: 0, ky: 0, dead: false, deadT: 0, anim: 0, facing: 1,
+    wander: 0, wanderA: Math.random() * 6.283, lunge: 0,
     abilityCd: 3.5, abilIdx: 0, phase: 1
   };
   e.maxHp = e.hp;
@@ -1177,6 +1178,8 @@ function updateEnemy(e, dt) {
   }
 
   var spd = e.speed * (e.slowT > 0 ? 0.28 : 1);
+  if (!isFinite(e.wanderA)) e.wanderA = Math.random() * 6.283;
+  if (!isFinite(e.wander)) e.wander = 0;
   var dir = null;
   if (e.aggro) {
     if (e.kind === 'ranged' && !e.boss) {
@@ -1456,7 +1459,7 @@ function step(dt) {
     var en = G.enemies[i];
     updateEnemy(en, dt);
     if (!isFinite(en.x) || !isFinite(en.y)) {
-      logErr('enemy ' + en.type + ' position lost');
+      G.lostPos = (G.lostPos || 0) + 1;
       en.dead = true; en.deadT = 0;
     }
   }
